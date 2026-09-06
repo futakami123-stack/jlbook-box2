@@ -378,22 +378,20 @@
                 if (Array.isArray(cloudBoxes) && cloudBoxes.length > 0) {
                     boxes = cloudBoxes;
                     localStorage.setItem("library_boxes", JSON.stringify(boxes));
-                    
+            
                     const found = boxes.find(b => b.id === currentBoxId);
                     if (found) {
                         mainBoxData = found;
                         if (!mainBoxData.tags) mainBoxData.tags = [];
-                        
-                        // 若雲端已有詳細資訊則覆蓋
-                        if (found.barcode || found.cover || found.desc) {
-                            currentDetail = {
-                                barcode: found.barcode || currentDetail.barcode,
-                                cover: found.cover || currentDetail.cover,
-                                desc: found.desc || currentDetail.desc
-                            };
-                            boxDetailsMap[currentBoxId] = currentDetail;
-                            localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
-                        }
+                
+                        // 強制將雲端的詳細資料同步到目前畫面變數與快取
+                        currentDetail = {
+                            barcode: found.barcode || currentDetail.barcode,
+                            cover: found.cover || currentDetail.cover,
+                            desc: found.desc || currentDetail.desc
+                        };
+                        boxDetailsMap[currentBoxId] = currentDetail;
+                        localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
                     }
                     initView();
                 }
