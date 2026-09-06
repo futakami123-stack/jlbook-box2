@@ -916,12 +916,14 @@
         async function deleteBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？`)) {
+                // 先向 Google Sheets 發送刪除請求
+                await postToGoogleSheets("delete", { id: boxId });        
+                // 本地陣列移除
                 boxes = boxes.filter(b => b.id !== boxId);
                 saveBoxes();
                 renderUI();
-
-                // 同步至 Google Sheets
-                await postToGoogleSheets("delete", { id: boxId });
+        
+                alert("已成功刪除箱書！");
             }
         }
 
