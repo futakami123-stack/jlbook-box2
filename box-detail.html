@@ -316,9 +316,10 @@
             </div>
 
             <div class="form-group">
-                <label for="imageInput">3. 更換箱書封面圖片：</label>
-                <input type="file" id="imageInput" accept="image/*" onchange="previewImage(this)">
-                <img id="preview" class="img-preview" alt="預覽圖">
+                <label for="imageUrlInput">3. 輸入箱書封面圖片網址：</label>
+                <input type="text" id="imageUrlInput" placeholder="請貼上圖片直連網址（例如 https://...）" oninput="previewUrlImage(this)">
+                <!-- 即時預覽圖片 -->
+                <img id="preview" class="img-preview" alt="預覽圖" style="max-width: 150px; display: none; margin-top: 8px; border-radius: 4px; border: 1px solid #ccc;">
             </div>
 
             <div class="form-group">
@@ -443,41 +444,60 @@
 
         function toggleEditAuth() {
             const editPanel = document.getElementById("editPanel");
-            
+    
             if (!isStaff) {
                 const pwd = prompt("請輸入閱推老師管理密碼：");
                 if (pwd === STAFF_PASSWORD) {
                     isStaff = true;
                     document.getElementById("authBtn").innerText = "🔓 切換/收合編輯器";
                     editPanel.style.display = "block";
+            
+                    // 帶入原本的資料
                     document.getElementById("barcodeInput").value = currentDetail.barcode || "";
                     document.getElementById("editDescText").value = currentDetail.desc;
+            
+                    // 🔽 【新增這幾行】把現有的封面網址填進輸入框，並讓預覽圖秀出來
+                    document.getElementById("imageUrlInput").value = currentDetail.cover || "";
+                    if (currentDetail.cover) {
+                        const preview = document.getElementById("preview");
+                        preview.src = currentDetail.cover;
+                        preview.style.display = "block";
+                    }
+            
                     renderTags();
                     alert("已成功驗證老師權限！");
                 } else if (pwd !== null) {
                     alert("密碼錯誤！");
                 }
             } else {
+                // 如果已經是老師身分，點擊按鈕是收合或展開編輯面板
                 editPanel.style.display = editPanel.style.display === "none" ? "block" : "none";
+        
+                // 展開時也順便更新一下輸入框與預覽圖
+                if (editPanel.style.display === "block") {
+                    document.getElementById("imageUrlInput").value = currentDetail.cover || "";
+                    if (currentDetail.cover) {
+                        const preview = document.getElementById("preview");
+                        preview.src = currentDetail.cover;
+                        preview.style.display = "block";
+                    }
+                }
             }
         }
 
-        function previewImage(input) {
+        function previewUrlImage(input) {
             const preview = document.getElementById('preview');
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                }
-                reader.readAsDataURL(input.files[0]);
+            const url = input.value.trim();
+            if (url) {
+                preview.src = url;
+                preview.style.display = 'block';
             } else {
                 preview.style.display = 'none';
             }
         }
 
         function saveDetails() {
-            const fileInput = document.getElementById("imageInput");
+            const imageUrlInput = document.getElementById("imageUrlInput").value.trim();
             const newBarcode = document.getElementById("barcodeInput").value.trim();
             const newDesc = document.getElementById("editDescText").value.trim();
 
@@ -487,23 +507,13 @@
                 currentDetail.desc = newDesc;
             }
 
-            if (fileInput.files && fileInput.files[0]) {
-                const file = fileInput.files[0];
-                
-                if (file.size > 2 * 1024 * 1024) {
-                    alert("⚠️ 圖片大小超過 2MB，請先壓縮後再上傳！");
-                    return;
-                }
-
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    currentDetail.cover = e.target.result;
-                    saveToStorageAndCloud();
-                };
-                reader.readAsDataURL(file);
-            } else {
-                saveToStorageAndCloud();
+            // 如果有輸入新的圖片網址，就更新封面
+            if (imageUrlInput !== "") {
+                currentDetail.cover = imageUrlInput;
             }
+
+            // 直接儲存並同步到雲端與 LocalStorage
+            saveToStorageAndCloud();
         }
 
         // 🌐 2. 將修改儲存至 LocalStorage 並推送到 Google 表單/試算表
