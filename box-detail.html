@@ -554,7 +554,7 @@
 
                 document.getElementById("editPanel").style.display = "none";
                 document.getElementById("preview").style.display = "none";
-                document.getElementById("imageInput").value = ""; 
+                document.getElementById("imageUrlInput").value = ""; 
                 initView();
                 alert("✨ 資料與標籤已成功更新至雲端與本地！");
             } catch (e) {
@@ -569,7 +569,7 @@
         function cancelEdit() {
             document.getElementById("editPanel").style.display = "none";
             document.getElementById("preview").style.display = "none";
-            document.getElementById("imageInput").value = "";
+            document.getElementById("imageUrlInput").value = "";
         }
 
         // 頁面初始化
