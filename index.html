@@ -550,6 +550,40 @@
             }
         }
 
+        // --- 更新 Excel 箱書狀態 (PATCH) ---
+        async function updateBoxInExcel(box) {
+            try {
+                const token = await getAccessToken();
+                const res = await fetch(`${BOXES_TABLE_URL}/rows`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error("取得資料失敗");
+                const data = await res.json();
+                const rows = data.value || [];
+
+                const rowIndex = rows.findIndex(r => String(r.values[0][0]) === String(box.id));
+
+                if (rowIndex !== -1) {
+                    const tagsStr = (box.tags || []).join(",");
+                    const updateUrl = `${BOXES_TABLE_URL}/rows/itemAt(index=${rowIndex})`;
+
+                    await fetch(updateUrl, {
+                        method: "PATCH",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            values: [[box.id, box.topic, box.status, box.count, tagsStr, box.targetClass]]
+                        })
+                    });
+                    console.log(`[Excel 同步成功] 箱號 ${box.id} 狀態已更新為：${box.status}`);
+                }
+            } catch (err) {
+                console.error("更新 Excel 狀態失敗:", err);
+            }
+        }
+
         function loadBoxesFromStorage() {
             const saved = localStorage.getItem("library_boxes");
             if (saved) {
@@ -779,7 +813,7 @@
             btnContainer.appendChild(nextBtn);
         }
 
-        // --- 預約與同步 Logs 到 Excel ---
+        // --- 預約箱書 (寫入 LogsTable + 更新 BoxesTable) ---
         async function reserveBox() {
             const boxId = document.getElementById("selectBox").value;
             const className = document.getElementById("classInput").value.trim();
@@ -797,7 +831,7 @@
                 saveBoxesLocal();
                 renderUI();
 
-                // 背景同步 Logs 至 Excel
+                // 1. 同步 Logs 至 Excel
                 try {
                     const token = await getAccessToken();
                     const timestamp = new Date().toLocaleString("zh-TW");
@@ -810,30 +844,40 @@
                     console.error("預約同步至 Logs 失敗:", e);
                 }
 
+                // 2. 更新 Excel BoxesTable 狀態
+                await updateBoxInExcel(targetBox);
+
                 alert(`【預約成功】\n\n${targetBox.targetClass} 已預約 ${targetBox.id}！隔日起可至教務處找閱推老師辦理正式借閱與領取！`);
             }
         }
 
-        function confirmCheckout(boxId) {
+        // --- 確認借出 (同步 Excel) ---
+        async function confirmCheckout(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確認辦理借出嗎？`)) {
                 targetBox.status = "已借出";
                 saveBoxesLocal();
                 renderUI();
+
+                await updateBoxInExcel(targetBox);
             }
         }
 
-        function returnBox(boxId) {
+        // --- 辦理歸還 (同步 Excel) ---
+        async function returnBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確認辦理歸還嗎？`)) {
                 targetBox.status = "可借閱";
                 targetBox.targetClass = "-";
                 saveBoxesLocal();
                 renderUI();
+
+                await updateBoxInExcel(targetBox);
             }
         }
 
-        function editBox(boxId) {
+        // --- 編輯箱書資料 (同步 Excel) ---
+        async function editBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (!targetBox) return;
 
@@ -848,13 +892,17 @@
             targetBox.topic = newTopic.trim();
             targetBox.tags = newTagsStr.split(",").map(t => t.trim()).filter(t => t !== "");
             targetBox.count = parseInt(newCount) || targetBox.count;
+
             saveBoxesLocal();
             renderUI();
+
+            await updateBoxInExcel(targetBox);
         }
 
+        // --- 刪除箱書 ---
         function deleteBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
-            if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？`)) {
+            if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？\n(注意：現有 Excel 表格列不會直接刪除，建議至 Excel 手動移除或清空)`)) {
                 boxes = boxes.filter(b => b.id !== boxId);
                 saveBoxesLocal();
                 renderUI();
@@ -922,7 +970,12 @@
         // 頁面初始化
         window.addEventListener('load', async function () {
             await myMSALObj.initialize();
-            syncFromExcel();
+            await syncFromExcel();
+
+            // 設定每 30 秒自動向 Excel 請求最新狀態 (跨 Client 輪詢)
+            setInterval(() => {
+                syncFromExcel();
+            }, 30000);
         });
     </script>
 </body>
