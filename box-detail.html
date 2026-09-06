@@ -234,6 +234,7 @@
         }
         button:hover { opacity: 0.9; }
         button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .btn-edit-mode { background-color: var(--warning-color); }
         .btn-save { background-color: var(--success-color); margin-right: 8px; }
@@ -292,7 +293,7 @@
             <!-- 右側：導讀簡介 -->
             <div class="description-box">
                 <h3>📖 箱書簡介與導讀</h3>
-                <div id="boxDescription" class="desc-text">目前尚無設定簡介資料。</div>
+                <div id="boxDescription" class="desc-text">讀取雲端資料中...</div>
             </div>
         </div>
 
@@ -325,12 +326,15 @@
                 <textarea id="editDescText" placeholder="請輸入本箱書的簡介、適合年級或導讀內容..."></textarea>
             </div>
 
-            <button class="btn-save" onclick="saveDetails()">💾 儲存修改</button>
+            <button id="btnSave" class="btn-save" onclick="saveDetails()">💾 儲存修改</button>
             <button class="btn-cancel" onclick="cancelEdit()">取消</button>
         </div>
     </div>
 
     <script>
+        // 🔗 Google Apps Script API 部署網址
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykd777KYnNgPSWZFU7bGyMV4Vq2qMYTvo-FKOhQRxVMoCoZqmUUkyA2ARigm8GJK9L/exec";
+        
         const STAFF_PASSWORD = "0000";
         let isStaff = false;
 
@@ -342,7 +346,6 @@
         let boxes = JSON.parse(localStorage.getItem("library_boxes")) || [];
         let boxDetailsMap = JSON.parse(localStorage.getItem("library_box_details")) || {};
         
-        // 取得目前箱號的資料
         let mainBoxData = boxes.find(b => b.id === currentBoxId) || { id: currentBoxId, topic: "箱書內容", tags: [] };
         let currentDetail = boxDetailsMap[currentBoxId] || {
             barcode: currentBoxId.replace("-", "00"),
@@ -350,10 +353,8 @@
             desc: "歡迎借閱本箱書！閱推老師可登入編輯此處的導讀內容、館藏登錄號與封面照片。"
         };
 
-        // 確保 tags 為陣列格式
         if (!mainBoxData.tags) { mainBoxData.tags = []; }
 
-        // 預設預覽圖片 (SVG Data URI)
         const defaultCover = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='300' viewBox='0 0 200 300'><rect width='100%' height='100%' fill='%23f1f3f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23adb5bd' font-size='16'>尚未上傳封面</text></svg>";
 
         function initView() {
@@ -361,15 +362,46 @@
             document.getElementById("barcodeTag").innerText = "登錄號：" + (currentDetail.barcode || "未設定");
             document.getElementById("boxTopicTitle").innerText = mainBoxData.topic;
 
-            // 渲染圖片與文字
             document.getElementById("coverImg").src = currentDetail.cover || defaultCover;
             document.getElementById("boxDescription").innerText = currentDetail.desc;
 
-            // 渲染 TAG 標籤
             renderTags();
         }
 
-        // 渲染標籤
+        // 🌐 1. 向 Google Apps Script 抓取最新雲端資料
+        async function fetchCloudData() {
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                if (!response.ok) throw new Error("網路回應不正確");
+                const cloudBoxes = await response.json();
+
+                if (Array.isArray(cloudBoxes) && cloudBoxes.length > 0) {
+                    boxes = cloudBoxes;
+                    localStorage.setItem("library_boxes", JSON.stringify(boxes));
+                    
+                    const found = boxes.find(b => b.id === currentBoxId);
+                    if (found) {
+                        mainBoxData = found;
+                        if (!mainBoxData.tags) mainBoxData.tags = [];
+                        
+                        // 若雲端已有詳細資訊則覆蓋
+                        if (found.barcode || found.cover || found.desc) {
+                            currentDetail = {
+                                barcode: found.barcode || currentDetail.barcode,
+                                cover: found.cover || currentDetail.cover,
+                                desc: found.desc || currentDetail.desc
+                            };
+                            boxDetailsMap[currentBoxId] = currentDetail;
+                            localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
+                        }
+                    }
+                    initView();
+                }
+            } catch (err) {
+                console.warn("無法連接至 Google 試算表同步資料，改使用本地快取：", err);
+            }
+        }
+
         function renderTags() {
             const container = document.getElementById("customTagsContainer");
             container.innerHTML = "";
@@ -379,20 +411,17 @@
                 tagEl.className = "custom-tag";
                 
                 if (isStaff) {
-                    // 編輯模式：顯示刪除按鈕 ✕
                     tagEl.innerHTML = `#${tag} <button class="btn-del-tag" title="刪除標籤" onclick="removeTag(${index})">✕</button>`;
                 } else {
-                    // 一般檢視模式：僅顯示標籤
                     tagEl.innerText = `#${tag}`;
                 }
                 container.appendChild(tagEl);
             });
         }
 
-        // 新增 Tag 標籤
         function addNewTag() {
             const input = document.getElementById("newTagInput");
-            const newTag = input.value.trim().replace(/^#/, ''); // 自動去除開頭的 #
+            const newTag = input.value.trim().replace(/^#/, '');
             
             if (!newTag) {
                 alert("請輸入標籤名稱！");
@@ -409,7 +438,6 @@
             renderTags();
         }
 
-        // 刪除 Tag 標籤
         function removeTag(index) {
             mainBoxData.tags.splice(index, 1);
             renderTags();
@@ -426,18 +454,16 @@
                     editPanel.style.display = "block";
                     document.getElementById("barcodeInput").value = currentDetail.barcode || "";
                     document.getElementById("editDescText").value = currentDetail.desc;
-                    renderTags(); // 切換為含刪除按鈕的標籤狀態
+                    renderTags();
                     alert("已成功驗證老師權限！");
                 } else if (pwd !== null) {
                     alert("密碼錯誤！");
                 }
             } else {
-                // 已驗證狀態下點擊可開關面板
                 editPanel.style.display = editPanel.style.display === "none" ? "block" : "none";
             }
         }
 
-        // 上傳檔案時顯示即時縮圖
         function previewImage(input) {
             const preview = document.getElementById('preview');
             if (input.files && input.files[0]) {
@@ -463,7 +489,6 @@
                 currentDetail.desc = newDesc;
             }
 
-            // 如果有選擇新圖片檔案，轉換為 Base64 並儲存
             if (fileInput.files && fileInput.files[0]) {
                 const file = fileInput.files[0];
                 
@@ -475,36 +500,61 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     currentDetail.cover = e.target.result;
-                    saveToStorage();
+                    saveToStorageAndCloud();
                 };
                 reader.readAsDataURL(file);
             } else {
-                saveToStorage();
+                saveToStorageAndCloud();
             }
         }
 
-        function saveToStorage() {
+        // 🌐 2. 將修改儲存至 LocalStorage 並推送到 Google 表單/試算表
+        async function saveToStorageAndCloud() {
+            const saveBtn = document.getElementById("btnSave");
+            saveBtn.disabled = true;
+            saveBtn.innerText = "⏳ 雲端同步中...";
+
             try {
-                // 1. 更新箱書詳細資料 (library_box_details)
+                // 更新 LocalStorage
                 boxDetailsMap[currentBoxId] = currentDetail;
                 localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
 
-                // 2. 更新主清單資料 (library_boxes)，確保 Tags 被同步保存
                 let boxIndex = boxes.findIndex(b => b.id === currentBoxId);
                 if (boxIndex !== -1) {
                     boxes[boxIndex].tags = mainBoxData.tags;
-                } else {
-                    boxes.push(mainBoxData);
+                    boxes[boxIndex].barcode = currentDetail.barcode;
+                    boxes[boxIndex].cover = currentDetail.cover;
+                    boxes[boxIndex].desc = currentDetail.desc;
                 }
                 localStorage.setItem("library_boxes", JSON.stringify(boxes));
+
+                // 發送 POST 請求更新 Google 試算表
+                const payload = {
+                    action: "updateDetail", // 搭配後端 Apps Script 的動作辨識
+                    id: currentBoxId,
+                    barcode: currentDetail.barcode,
+                    tags: mainBoxData.tags.join(","),
+                    cover: currentDetail.cover,
+                    desc: currentDetail.desc
+                };
+
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(payload)
+                });
 
                 document.getElementById("editPanel").style.display = "none";
                 document.getElementById("preview").style.display = "none";
                 document.getElementById("imageInput").value = ""; 
                 initView();
-                alert("✨ 資料與標籤已成功儲存更新！");
+                alert("✨ 資料與標籤已成功更新至雲端與本地！");
             } catch (e) {
-                alert("⚠️ 儲存失敗：可能因為圖片過大導致瀏覽器儲存空間不足。");
+                console.error(e);
+                alert("⚠️ 本地已儲存，但同步至雲端時出錯。");
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerText = "💾 儲存修改";
             }
         }
 
@@ -516,6 +566,7 @@
 
         // 頁面初始化
         initView();
+        fetchCloudData(); // 頁面載入時嘗試從雲端抓取最新資料
     </script>
 </body>
 </html>
