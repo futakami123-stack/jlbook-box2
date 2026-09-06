@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>圖書館箱書預約系統</title>
-    <!-- 引入 Microsoft Graph SDK -->
-    <script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+    <!-- Microsoft Authentication Library (MSAL.js v2) -->
+    <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
     <style>
         :root {
             --primary: #4a6fa5;
@@ -96,6 +96,13 @@
             background-color: var(--primary-hover);
         }
 
+        .btn-ms {
+            background-color: #0078d4;
+        }
+        .btn-ms:hover {
+            background-color: #005a9e;
+        }
+
         .btn-opac {
             background-color: #7C2D12;
         }
@@ -131,6 +138,7 @@
             background-color: #b71c1c;
         }
 
+        /* 注意事項面板樣式 */
         .notice-panel {
             background-color: #FFF7ED;
             border-left: 5px solid #FFEAD5;
@@ -190,6 +198,7 @@
             border-color: var(--primary);
         }
 
+        /* 標籤按鈕區塊 */
         .tag-filter-container {
             margin-bottom: 20px;
             display: flex;
@@ -236,6 +245,7 @@
             margin-bottom: 2px;
         }
 
+        /* 表格樣式 */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -297,6 +307,7 @@
             gap: 8px;
         }
 
+        /* 分頁控制列 */
         .pagination-container {
             display: flex;
             justify-content: space-between;
@@ -355,7 +366,10 @@
         <header>
             <h1>📚 圖書館箱書預約系統</h1>
             <div class="role-section">
-               <div id="roleBadge" class="role-badge">當前身分：📖 班級預約模式</div>
+                <span id="userInfo" style="font-size:0.9rem; font-weight:600;" class="hidden"></span>
+                <button id="msLoginBtn" onclick="handleMSLogin()" class="btn-ms">🔐 微軟帳號登入</button>
+                <div id="roleBadge" class="role-badge">當前身分：📖 班級預約模式</div>
+                <!-- 🔗 學校圖書館館藏查詢按鈕 (請修改 href 網址為貴校圖書館網址) -->
                 <a href="https://esa.ntpc.edu.tw/014579/library" target="_blank" class="btn-link btn-opac">館藏查詢</a>
                 <button id="authBtn" onclick="toggleMode()">閱推老師登入</button>
             </div>
@@ -365,7 +379,7 @@
             <span>⚙️ 閱推老師管理模式已啟用 (可進行箱書歸還、確認借出與後台編輯)</span>
         </div>
 
-        <!-- 注意事項面板 -->
+        <!-- 📌 預約與領取注意事項 -->
         <div class="notice-panel">
             <h3>預約與領取注意事項</h3>
             <ol>
@@ -393,8 +407,8 @@
         <!-- 前台箱書清單表格 -->
         <div class="table-header-controls">
             <h2 style="margin: 0; font-size: 1.2rem; color: #444;">📦 箱書清單</h2>
-            <div>
-                <button onclick="syncFromExcel()" style="margin-right: 10px; background-color: #0288d1;">🔄 同步 Excel 資料</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button onclick="syncFromExcel()" style="background-color: #6c757d; padding: 4px 10px; font-size: 0.85rem;">🔄 重新讀取</button>
                 <label for="pageSizeSelect" style="font-size: 0.9rem; color: #666;">每頁顯示：</label>
                 <select id="pageSizeSelect" onchange="changePageSize()">
                     <option value="10" selected>10 筆</option>
@@ -429,7 +443,7 @@
         <div id="staffPanel" class="panel hidden" style="margin-top: 40px; border-color: #ffe082; background-color: #fffde7;">
             <h2>🛠️ 閱推老師管理後台</h2>
             
-            <h3 style="font-size: 1rem; margin-top: 0;">➕ 新增箱書 (同步至 Excel)</h3>
+            <h3 style="font-size: 1rem; margin-top: 0;">➕ 新增箱書</h3>
             <div class="form-group" style="margin-bottom: 25px;">
                 <input type="text" id="newId" placeholder="箱號 (例: BOX-004)" style="width: 120px;">
                 <input type="text" id="newTopic" placeholder="主題 (例: 歷史故事)" style="width: 200px;">
@@ -472,126 +486,189 @@
     </div>
 
     <script>
-        const STAFF_PASSWORD = "0000"; // 閱推老師管理密碼
-        let isStaff = false;
-
-        // === 雲端同步 MSAL 與 Excel API 設定 ===
+        // ==========================================
+        // 1. MSAL.js 設定與全域變數
+        // ==========================================
         const msalConfig = {
             auth: {
-                clientId: "19dbf0e2-febd-4ea7-b7d0-157756f282c4",
-                authority: "https://login.microsoftonline.com/235b689e-d0dd-49b5-bde9-34e94973fb41",
+                clientId: "YOUR_MICROSOFT_CLIENT_ID", // 請替換為您的 Azure App Client ID
+                authority: "https://login.microsoftonline.com/common",
                 redirectUri: window.location.origin + window.location.pathname
+            },
+            cache: {
+                cacheLocation: "sessionStorage",
+                storeAuthStateInCookie: false
             }
         };
-        const loginRequest = { scopes: ["Files.ReadWrite", "Files.ReadWrite.AppFolder"] };
+
+        const loginRequest = {
+            scopes: ["User.Read", "Files.ReadWrite.All"]
+        };
+
         const myMSALObj = new msal.PublicClientApplication(msalConfig);
+        let currentUser = null;
 
-        const EXCEL_BASE_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/boxes_master.xlsx:/workbook/worksheets";
-        const BOXES_TABLE_URL = `${EXCEL_BASE_URL}('Boxes')/tables('BoxesTable')`;
-        const LOGS_TABLE_URL = `${EXCEL_BASE_URL}('Logs')/tables('LogsTable')`;
+        // Microsoft Graph API Excel 表格 Endpoint (請設定為您在 OneDrive 上的 Excel 檔案項目 ID)
+        const BOXES_TABLE_URL = "https://graph.microsoft.com/v1.0/me/drive/items/YOUR_FILE_ID/workbook/tables/BoxesTable";
 
-        // 預設預備資料 (若雲端載入失敗時備用)
+        const STAFF_PASSWORD = "0000";
+        let isStaff = false;
+
+        // 預設箱書資料
+        const defaultBoxes = [
+            { id: "BOX-001", topic: "兒童繪本精選", tags: ["繪本", "低年級", "品格"], count: 20, status: "可借閱", targetClass: "-" },
+            { id: "BOX-002", topic: "科普探索系列", tags: ["科普", "自然", "高年級"], count: 15, status: "已預約", targetClass: "908 班" },
+            { id: "BOX-003", topic: "青少年經典文學", tags: ["文學", "小說", "高年級"], count: 12, status: "已借出", targetClass: "801 班" }
+        ];
+
         let boxes = [];
 
-        // 前後台狀態控制
+        // 前台分頁與篩選狀態
         let currentPage = 1;
         let pageSize = 10;
         let selectedTag = "ALL";
+
+        // 後台分頁狀態
         let mgmtCurrentPage = 1;
         let mgmtPageSize = 10;
 
-        // --- 取得 Access Token ---
-        async function getAccessToken() {
+        // ==========================================
+        // 2. Microsoft 驗證與 Token 取得
+        // ==========================================
+        async function handleMSLogin() {
+            try {
+                const loginResponse = await myMSALObj.loginPopup(loginRequest);
+                currentUser = loginResponse.account;
+                updateAuthUI();
+                await syncFromExcel();
+            } catch (error) {
+                console.error("登入失敗:", error);
+            }
+        }
+
+        function updateAuthUI() {
+            const btnLogin = document.getElementById("msLoginBtn");
+            const userInfo = document.getElementById("userInfo");
+
             const accounts = myMSALObj.getAllAccounts();
             if (accounts.length > 0) {
-                try {
-                    const res = await myMSALObj.acquireTokenSilent({ ...loginRequest, account: accounts[0] });
-                    return res.accessToken;
-                } catch (e) {
-                    const res = await myMSALObj.acquireTokenPopup(loginRequest);
-                    return res.accessToken;
-                }
+                currentUser = accounts[0];
+                btnLogin.innerText = "登出微軟";
+                btnLogin.onclick = () => { myMSALObj.logoutPopup(); currentUser = null; updateAuthUI(); };
+                userInfo.classList.remove("hidden");
+                userInfo.textContent = `👤 ${currentUser.name || currentUser.username}`;
             } else {
-                const res = await myMSALObj.loginPopup(loginRequest);
-                return res.accessToken;
+                btnLogin.innerText = "🔐 微軟帳號登入";
+                btnLogin.onclick = handleMSLogin;
+                userInfo.classList.add("hidden");
+                userInfo.textContent = "";
             }
         }
 
-        // --- 從 Excel 讀取資料 ---
-        async function syncFromExcel() {
+        async function getAccessToken() {
+            const accounts = myMSALObj.getAllAccounts();
+            if (accounts.length === 0) throw new Error("使用者未登入");
+
+            const request = {
+                scopes: ["Files.ReadWrite.All"],
+                account: accounts[0]
+            };
+
+            try {
+                const response = await myMSALObj.acquireTokenSilent(request);
+                return response.accessToken;
+            } catch (error) {
+                console.warn("Silent token acquisition failed. Trying popup...");
+                const response = await myMSALObj.acquireTokenPopup(request);
+                return response.accessToken;
+            }
+        }
+
+        // ==========================================
+        // 3. Microsoft Graph API 同步邏輯
+        // ==========================================
+        async function updateBoxStatusToExcel(boxId, newStatus, targetClass) {
             try {
                 const token = await getAccessToken();
                 const res = await fetch(`${BOXES_TABLE_URL}/rows`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
-
-                if (!res.ok) throw new Error("Excel 讀取失敗");
+                if (!res.ok) throw new Error("讀取列資料失敗");
+                
                 const data = await res.json();
                 const rows = data.value || [];
-
-                boxes = rows.map(r => {
-                    const [id, topic, status, count, tagsStr, targetClass] = r.values[0];
-                    return {
-                        id: String(id || ""),
-                        topic: String(topic || ""),
-                        status: String(status || "可借閱"),
-                        count: Number(count || 0),
-                        tags: tagsStr ? String(tagsStr).split(",").map(t => t.trim()) : [],
-                        targetClass: String(targetClass || "-")
-                    };
-                });
-
-                saveBoxesLocal();
-                renderUI();
-            } catch (err) {
-                console.error("雲端同步失敗:", err);
-                loadBoxesFromStorage();
-                renderUI();
-            }
-        }
-
-        // --- 更新 Excel 箱書狀態 (PATCH) ---
-        async function updateBoxInExcel(box) {
-            try {
-                const token = await getAccessToken();
-                const res = await fetch(`${BOXES_TABLE_URL}/rows`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error("取得資料失敗");
-                const data = await res.json();
-                const rows = data.value || [];
-
-                const rowIndex = rows.findIndex(r => String(r.values[0][0]) === String(box.id));
-
+                const rowIndex = rows.findIndex(r => String(r.values[0][0]) === boxId);
+                
                 if (rowIndex !== -1) {
-                    const tagsStr = (box.tags || []).join(",");
-                    const updateUrl = `${BOXES_TABLE_URL}/rows/itemAt(index=${rowIndex})`;
+                    const originalRow = rows[rowIndex].values[0];
+                    const updatedValues = [[
+                        originalRow[0], // id
+                        originalRow[1], // topic
+                        newStatus,      // status
+                        originalRow[3], // count
+                        originalRow[4], // tagsStr
+                        targetClass     // targetClass
+                    ]];
 
-                    await fetch(updateUrl, {
+                    await fetch(`${BOXES_TABLE_URL}/rows/itemAt(index=${rowIndex})`, {
                         method: "PATCH",
                         headers: {
                             "Authorization": `Bearer ${token}`,
                             "Content-Type": "application/json"
                         },
-                        body: JSON.stringify({
-                            values: [[box.id, box.topic, box.status, box.count, tagsStr, box.targetClass]]
-                        })
+                        body: JSON.stringify({ values: updatedValues })
                     });
-                    console.log(`[Excel 同步成功] 箱號 ${box.id} 狀態已更新為：${box.status}`);
+                    console.log(`[Excel 狀態同步成功] ${boxId} -> ${newStatus} (${targetClass})`);
                 }
-            } catch (err) {
-                console.error("更新 Excel 狀態失敗:", err);
+            } catch (e) {
+                console.error("更新狀態至 Excel 失敗:", e);
             }
         }
 
+        async function syncFromExcel() {
+            try {
+                const token = await getAccessToken();
+                const resBoxes = await fetch(`${BOXES_TABLE_URL}/rows`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (resBoxes.ok) {
+                    const dataBoxes = await resBoxes.json();
+                    boxes = dataBoxes.value.map(row => {
+                        const val = row.values[0];
+                        return {
+                            id: val[0],
+                            topic: val[1],
+                            status: val[2],
+                            count: val[3],
+                            tags: val[4] ? String(val[4]).split(",") : [],
+                            targetClass: val[5] || "-"
+                        };
+                    });
+                    saveBoxes();
+                    renderUI();
+                }
+            } catch (e) {
+                console.warn("無法從 Microsoft API 讀取資料 (將以快取模式呈現):", e);
+            }
+        }
+
+        // ==========================================
+        // 4. 本地快取與畫面渲染邏輯
+        // ==========================================
         function loadBoxesFromStorage() {
             const saved = localStorage.getItem("library_boxes");
             if (saved) {
-                try { boxes = JSON.parse(saved); } catch (e) { boxes = []; }
+                try {
+                    boxes = JSON.parse(saved);
+                } catch (e) {
+                    boxes = defaultBoxes;
+                }
+            } else {
+                boxes = defaultBoxes;
             }
         }
 
-        function saveBoxesLocal() {
+        function saveBoxes() {
             localStorage.setItem("library_boxes", JSON.stringify(boxes));
         }
 
@@ -632,15 +709,19 @@
         }
 
         function renderUI() {
+            // 箱號自然排序
             boxes.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
 
+            // 1. 重新渲染 TAG 篩選列
             renderTagFilters();
 
+            // 2. 前台：標籤過濾
             let filteredBoxes = boxes;
             if (selectedTag !== "ALL") {
                 filteredBoxes = boxes.filter(box => box.tags && box.tags.includes(selectedTag));
             }
 
+            // 前台分頁計算
             const totalItems = filteredBoxes.length;
             const totalPages = Math.ceil(totalItems / pageSize) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
@@ -648,6 +729,7 @@
             const startIndex = (currentPage - 1) * pageSize;
             const pageBoxes = filteredBoxes.slice(startIndex, startIndex + pageSize);
 
+            // DOM 容器
             const tbody = document.getElementById("boxTableBody");
             const select = document.getElementById("selectBox");
             const staffHeader = document.getElementById("staffHeader");
@@ -667,11 +749,13 @@
                 }
             }
 
+            // 控制表格「管理操作」欄位顯示
             document.querySelectorAll(".staff-col").forEach(el => {
                 if (isStaff) el.classList.remove("hidden");
                 else el.classList.add("hidden");
             });
 
+            // 3. 渲染前台表格內容
             if (tbody) {
                 pageBoxes.forEach(box => {
                     let statusClass = "status-ready";
@@ -704,6 +788,7 @@
                 });
             }
 
+            // 4. 渲染後台表格內容 (登入時)
             if (isStaff && mgmtTbody) {
                 const mgmtTotalItems = boxes.length;
                 const mgmtTotalPages = Math.ceil(mgmtTotalItems / mgmtPageSize) || 1;
@@ -736,6 +821,7 @@
                 renderMgmtPagination(mgmtTotalItems, mgmtTotalPages);
             }
 
+            // 5. 更新預約下拉選單
             if (select) {
                 boxes.forEach(box => {
                     if (box.status === "可借閱") {
@@ -813,7 +899,9 @@
             btnContainer.appendChild(nextBtn);
         }
 
-        // --- 預約箱書 (寫入 LogsTable + 更新 BoxesTable) ---
+        // ==========================================
+        // 5. 箱書操作行為 (預約/借出/歸還/編輯)
+        // ==========================================
         async function reserveBox() {
             const boxId = document.getElementById("selectBox").value;
             const className = document.getElementById("classInput").value.trim();
@@ -826,58 +914,43 @@
                 const fullClassName = className.includes("班") ? className : className + " 班";
                 targetBox.status = "已預約";
                 targetBox.targetClass = fullClassName;
-
                 document.getElementById("classInput").value = "";
-                saveBoxesLocal();
+                saveBoxes();
                 renderUI();
 
-                // 1. 同步 Logs 至 Excel
-                try {
-                    const token = await getAccessToken();
-                    const timestamp = new Date().toLocaleString("zh-TW");
-                    await fetch(`${LOGS_TABLE_URL}/rows/add`, {
-                        method: "POST",
-                        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ values: [[timestamp, boxId, fullClassName, "線上預約"]] })
-                    });
-                } catch (e) {
-                    console.error("預約同步至 Logs 失敗:", e);
-                }
-
-                // 2. 更新 Excel BoxesTable 狀態
-                await updateBoxInExcel(targetBox);
+                // 同步至 Excel
+                await updateBoxStatusToExcel(boxId, "已預約", fullClassName);
 
                 alert(`【預約成功】\n\n${targetBox.targetClass} 已預約 ${targetBox.id}！隔日起可至教務處找閱推老師辦理正式借閱與領取！`);
             }
         }
 
-        // --- 確認借出 (同步 Excel) ---
         async function confirmCheckout(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確認辦理借出嗎？`)) {
                 targetBox.status = "已借出";
-                saveBoxesLocal();
+                saveBoxes();
                 renderUI();
 
-                await updateBoxInExcel(targetBox);
+                // 同步至 Excel
+                await updateBoxStatusToExcel(boxId, "已借出", targetBox.targetClass);
             }
         }
 
-        // --- 辦理歸還 (同步 Excel) ---
         async function returnBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確認辦理歸還嗎？`)) {
                 targetBox.status = "可借閱";
                 targetBox.targetClass = "-";
-                saveBoxesLocal();
+                saveBoxes();
                 renderUI();
 
-                await updateBoxInExcel(targetBox);
+                // 同步至 Excel
+                await updateBoxStatusToExcel(boxId, "可借閱", "-");
             }
         }
 
-        // --- 編輯箱書資料 (同步 Excel) ---
-        async function editBox(boxId) {
+        function editBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (!targetBox) return;
 
@@ -892,19 +965,15 @@
             targetBox.topic = newTopic.trim();
             targetBox.tags = newTagsStr.split(",").map(t => t.trim()).filter(t => t !== "");
             targetBox.count = parseInt(newCount) || targetBox.count;
-
-            saveBoxesLocal();
+            saveBoxes();
             renderUI();
-
-            await updateBoxInExcel(targetBox);
         }
 
-        // --- 刪除箱書 ---
         function deleteBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
-            if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？\n(注意：現有 Excel 表格列不會直接刪除，建議至 Excel 手動移除或清空)`)) {
+            if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？`)) {
                 boxes = boxes.filter(b => b.id !== boxId);
-                saveBoxesLocal();
+                saveBoxes();
                 renderUI();
             }
         }
@@ -927,8 +996,7 @@
             renderUI();
         }
 
-        // --- 新增箱書 (同步至 Excel BoxesTable) ---
-        async function addNewBox() {
+        function addNewBox() {
             const id = document.getElementById("newId").value.trim();
             const topic = document.getElementById("newTopic").value.trim();
             const tagsStr = document.getElementById("newTags").value.trim();
@@ -939,43 +1007,40 @@
 
             const tagsArr = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(t => t !== "") : [];
 
-            const newBox = { id: id, topic: topic, tags: tagsArr, count: parseInt(count), status: "可借閱", targetClass: "-" };
-            boxes.push(newBox);
-            
+            boxes.push({ id: id, topic: topic, tags: tagsArr, count: parseInt(count), status: "可借閱", targetClass: "-" });
             document.getElementById("newId").value = "";
             document.getElementById("newTopic").value = "";
             document.getElementById("newTags").value = "";
             document.getElementById("newCount").value = "";
-
-            saveBoxesLocal();
+            saveBoxes();
             renderUI();
-
-            // 背景寫入 Excel
-            try {
-                const token = await getAccessToken();
-                await fetch(`${BOXES_TABLE_URL}/rows/add`, {
-                    method: "POST",
-                    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        values: [[id, topic, "可借閱", Number(count), tagsStr, "-"]]
-                    })
-                });
-                alert("新增成功！資料已寫入網頁與 Excel 雲端表格。");
-            } catch (e) {
-                console.error("寫入 Excel 失敗:", e);
-                alert("網頁已新增成功，但寫入 Excel 雲端失敗，請重新同步。");
-            }
         }
 
-        // 頁面初始化
+        // 初始化與監聽
         window.addEventListener('load', async function () {
             await myMSALObj.initialize();
-            await syncFromExcel();
+            updateAuthUI();
 
-            // 設定每 30 秒自動向 Excel 請求最新狀態 (跨 Client 輪詢)
+            loadBoxesFromStorage();
+            renderUI();
+
+            try {
+                await syncFromExcel();
+            } catch (e) {
+                console.log("尚未登入微軟帳號，使用本地快取展示。");
+            }
+
+            // 自動輪詢 (每 20 秒背景自動與 Excel 同步最新狀態)
             setInterval(() => {
-                syncFromExcel();
-            }, 30000);
+                const accounts = myMSALObj.getAllAccounts();
+                if (accounts.length > 0) {
+                    syncFromExcel();
+                }
+            }, 20000);
+        });
+
+        window.addEventListener('pageshow', function () {
+            renderUI();
         });
     </script>
 </body>
