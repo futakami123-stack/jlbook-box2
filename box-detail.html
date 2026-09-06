@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>箱書詳細簡介</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #334155;
+            --warning-color: #f39c12;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --edit-bg: #fffbf0;
+            --edit-border: #ffe082;
+            --bg-color: #f4f6f9;
+        }
+
+        * { box-sizing: border-box; }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            max-width: 860px; 
+            margin: 0 auto; 
+            padding: 20px 15px; 
+            background-color: var(--bg-color); 
+            line-height: 1.6; 
+            color: #333;
+        }
+
+        /* 頂部按鈕 */
+        .btn-back { 
+            background-color: #7f8c8d; 
+            text-decoration: none; 
+            padding: 8px 16px; 
+            display: inline-flex; 
+            align-items: center;
+            gap: 5px;
+            color: white; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            font-size: 14px;
+            margin-bottom: 15px; 
+            transition: background 0.2s;
+        }
+        .btn-back:hover { background-color: #6c757d; }
+
+        /* 卡片主體 */
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06); 
+        }
+
+        /* Header 區域 */
+        .header-bar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            border-bottom: 2px solid #eef2f5; 
+            padding-bottom: 15px; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-title-area { flex: 1; min-width: 250px; }
+        
+        .tags-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .box-info-tag { 
+            background-color: var(--accent-color); 
+            color: white; 
+            padding: 3px 10px; 
+            border-radius: 20px; 
+            font-size: 13px; 
+            font-weight: 600;
+        }
+        
+        .barcode-tag { 
+            background-color: #4a6fa5; 
+            color: white; 
+            padding: 3px 10px; 
+            border-radius: 20px; 
+            font-size: 13px; 
+            font-weight: 600;
+        }
+
+        /* 主體分類標籤 (Category / Custom Tags) */
+        .custom-tag {
+            background-color: #e8f4fd;
+            color: #2980b9;
+            border: 1px solid #bee3f8;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .custom-tag .btn-del-tag {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0 2px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .custom-tag .btn-del-tag:hover { color: #c0392b; }
+
+        h1 { 
+            margin: 0; 
+            color: var(--primary-color); 
+            font-size: 24px; 
+            font-weight: 700;
+        }
+
+        /* 內容版面佈局 */
+        .content-layout { 
+            display: flex; 
+            gap: 30px; 
+            margin-top: 10px; 
+        }
+
+        .cover-box { 
+            width: 220px; 
+            flex-shrink: 0;
+            text-align: center; 
+        }
+
+        .cover-img { 
+            width: 100%; 
+            height: 300px; 
+            object-fit: cover; 
+            border-radius: 8px; 
+            background-color: #f8f9fa; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+            transition: transform 0.2s;
+        }
+        .cover-img:hover { transform: scale(1.02); }
+
+        .description-box { 
+            flex: 1; 
+            min-width: 280px; 
+        }
+
+        .description-box h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+            font-size: 18px;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 10px;
+        }
+
+        .desc-text {
+            white-space: pre-wrap; 
+            color: #4a5568; 
+            font-size: 15px;
+            line-height: 1.8;
+            background: #fafafa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
+        }
+
+        /* 編輯區域控制 */
+        .edit-panel { 
+            background-color: var(--edit-bg); 
+            border: 1px solid var(--edit-border); 
+            padding: 20px; 
+            margin-top: 25px; 
+            border-radius: 8px; 
+            display: none; 
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .edit-panel h3 {
+            margin-top: 0;
+            color: #b7791f;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 14px; color: #4a5568; }
+
+        textarea, input[type="text"] { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            box-sizing: border-box; 
+            font-size: 14px; 
+            transition: border-color 0.2s;
+        }
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        textarea { height: 120px; resize: vertical; }
+
+        .tag-add-box {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .tag-add-box input { flex: 1; margin-bottom: 0; }
+        .btn-add-tag { background-color: var(--accent-color); white-space: nowrap; }
+
+        /* 按鈕通用樣式 */
+        button { 
+            padding: 9px 18px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-size: 14px;
+            color: white; 
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:hover { opacity: 0.9; }
+        button:active { transform: scale(0.98); }
+
+        .btn-edit-mode { background-color: var(--warning-color); }
+        .btn-save { background-color: var(--success-color); margin-right: 8px; }
+        .btn-cancel { background-color: #a0aec0; }
+
+        /* 圖片預覽區 */
+        .img-preview {
+            max-width: 100px;
+            max-height: 100px;
+            margin-top: 8px;
+            border-radius: 4px;
+            display: none;
+            border: 1px solid #ccc;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 響應式適應手機畫面 */
+        @media (max-width: 600px) {
+            .content-layout { flex-direction: column; align-items: center; }
+            .cover-box { width: 100%; max-width: 220px; }
+            .description-box { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <a href="javascript:window.close()" class="btn-back">⬅️ 關閉視窗 / 返回清單</a>
+
+    <div class="card">
+        <!-- 標頭 -->
+        <div class="header-bar">
+            <div class="header-title-area">
+                <div class="tags-wrapper">
+                    <span id="boxIdTag" class="box-info-tag">載入中...</span>
+                    <span id="barcodeTag" class="barcode-tag">登錄號：未設定</span>
+                    <!-- 動態渲染的標籤列表 -->
+                    <span id="customTagsContainer"></span>
+                </div>
+                <h1 id="boxTopicTitle">箱書主題</h1>
+            </div>
+            <button id="authBtn" class="btn-edit-mode" onclick="toggleEditAuth()">🛠️ 閱推老師編輯</button>
+        </div>
+
+        <!-- 主要展示內容 -->
+        <div class="content-layout">
+            <!-- 左側：箱書封面 -->
+            <div class="cover-box">
+                <img id="coverImg" class="cover-img" src="" alt="箱書封面">
+                <p style="font-size:12px; color:#888; margin-top:8px;">箱書推薦封面</p>
+            </div>
+
+            <!-- 右側：導讀簡介 -->
+            <div class="description-box">
+                <h3>📖 箱書簡介與導讀</h3>
+                <div id="boxDescription" class="desc-text">目前尚無設定簡介資料。</div>
+            </div>
+        </div>
+
+        <!-- 編輯面板（權限通過後顯示） -->
+        <div id="editPanel" class="edit-panel">
+            <h3>✏️ 編輯箱書詳細資料（閱推老師專用）</h3>
+            
+            <div class="form-group">
+                <label for="barcodeInput">1. 館藏登錄號 / 條碼號：</label>
+                <input type="text" id="barcodeInput" placeholder="例如：BOX00001">
+            </div>
+
+            <div class="form-group">
+                <label>2. 編輯主題標籤 (TAG)：</label>
+                <div class="tag-add-box">
+                    <input type="text" id="newTagInput" placeholder="輸入新標籤名稱，例如：高年級、科普、繪本">
+                    <button type="button" class="btn-add-tag" onclick="addNewTag()">➕ 新增標籤</button>
+                </div>
+                <p style="font-size: 12px; color: #718096; margin-top: 5px; margin-bottom: 0;">點擊標籤旁的 ✕ 可直接移除該標籤。</p>
+            </div>
+
+            <div class="form-group">
+                <label for="imageInput">3. 更換箱書封面圖片：</label>
+                <input type="file" id="imageInput" accept="image/*" onchange="previewImage(this)">
+                <img id="preview" class="img-preview" alt="預覽圖">
+            </div>
+
+            <div class="form-group">
+                <label for="editDescText">4. 修改導讀 / 箱書簡介內容：</label>
+                <textarea id="editDescText" placeholder="請輸入本箱書的簡介、適合年級或導讀內容..."></textarea>
+            </div>
+
+            <button class="btn-save" onclick="saveDetails()">💾 儲存修改</button>
+            <button class="btn-cancel" onclick="cancelEdit()">取消</button>
+        </div>
+    </div>
+
+    <script>
+        const STAFF_PASSWORD = "0000";
+        let isStaff = false;
+
+        // 取得網址列上的 ?id=BOX-001
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentBoxId = urlParams.get('id') || "BOX-001";
+
+        // 全域資料容器
+        let boxes = JSON.parse(localStorage.getItem("library_boxes")) || [];
+        let boxDetailsMap = JSON.parse(localStorage.getItem("library_box_details")) || {};
+        
+        // 取得目前箱號的資料
+        let mainBoxData = boxes.find(b => b.id === currentBoxId) || { id: currentBoxId, topic: "箱書內容", tags: [] };
+        let currentDetail = boxDetailsMap[currentBoxId] || {
+            barcode: currentBoxId.replace("-", "00"),
+            cover: "",
+            desc: "歡迎借閱本箱書！閱推老師可登入編輯此處的導讀內容、館藏登錄號與封面照片。"
+        };
+
+        // 確保 tags 為陣列格式
+        if (!mainBoxData.tags) { mainBoxData.tags = []; }
+
+        // 預設預覽圖片 (SVG Data URI)
+        const defaultCover = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='300' viewBox='0 0 200 300'><rect width='100%' height='100%' fill='%23f1f3f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23adb5bd' font-size='16'>尚未上傳封面</text></svg>";
+
+        function initView() {
+            document.getElementById("boxIdTag").innerText = currentBoxId;
+            document.getElementById("barcodeTag").innerText = "登錄號：" + (currentDetail.barcode || "未設定");
+            document.getElementById("boxTopicTitle").innerText = mainBoxData.topic;
+
+            // 渲染圖片與文字
+            document.getElementById("coverImg").src = currentDetail.cover || defaultCover;
+            document.getElementById("boxDescription").innerText = currentDetail.desc;
+
+            // 渲染 TAG 標籤
+            renderTags();
+        }
+
+        // 渲染標籤
+        function renderTags() {
+            const container = document.getElementById("customTagsContainer");
+            container.innerHTML = "";
+
+            mainBoxData.tags.forEach((tag, index) => {
+                const tagEl = document.createElement("span");
+                tagEl.className = "custom-tag";
+                
+                if (isStaff) {
+                    // 編輯模式：顯示刪除按鈕 ✕
+                    tagEl.innerHTML = `#${tag} <button class="btn-del-tag" title="刪除標籤" onclick="removeTag(${index})">✕</button>`;
+                } else {
+                    // 一般檢視模式：僅顯示標籤
+                    tagEl.innerText = `#${tag}`;
+                }
+                container.appendChild(tagEl);
+            });
+        }
+
+        // 新增 Tag 標籤
+        function addNewTag() {
+            const input = document.getElementById("newTagInput");
+            const newTag = input.value.trim().replace(/^#/, ''); // 自動去除開頭的 #
+            
+            if (!newTag) {
+                alert("請輸入標籤名稱！");
+                return;
+            }
+
+            if (mainBoxData.tags.includes(newTag)) {
+                alert("這個標籤已經存在囉！");
+                return;
+            }
+
+            mainBoxData.tags.push(newTag);
+            input.value = "";
+            renderTags();
+        }
+
+        // 刪除 Tag 標籤
+        function removeTag(index) {
+            mainBoxData.tags.splice(index, 1);
+            renderTags();
+        }
+
+        function toggleEditAuth() {
+            const editPanel = document.getElementById("editPanel");
+            
+            if (!isStaff) {
+                const pwd = prompt("請輸入閱推老師管理密碼：");
+                if (pwd === STAFF_PASSWORD) {
+                    isStaff = true;
+                    document.getElementById("authBtn").innerText = "🔓 切換/收合編輯器";
+                    editPanel.style.display = "block";
+                    document.getElementById("barcodeInput").value = currentDetail.barcode || "";
+                    document.getElementById("editDescText").value = currentDetail.desc;
+                    renderTags(); // 切換為含刪除按鈕的標籤狀態
+                    alert("已成功驗證老師權限！");
+                } else if (pwd !== null) {
+                    alert("密碼錯誤！");
+                }
+            } else {
+                // 已驗證狀態下點擊可開關面板
+                editPanel.style.display = editPanel.style.display === "none" ? "block" : "none";
+            }
+        }
+
+        // 上傳檔案時顯示即時縮圖
+        function previewImage(input) {
+            const preview = document.getElementById('preview');
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        function saveDetails() {
+            const fileInput = document.getElementById("imageInput");
+            const newBarcode = document.getElementById("barcodeInput").value.trim();
+            const newDesc = document.getElementById("editDescText").value.trim();
+
+            currentDetail.barcode = newBarcode || "未設定";
+
+            if (newDesc !== "") {
+                currentDetail.desc = newDesc;
+            }
+
+            // 如果有選擇新圖片檔案，轉換為 Base64 並儲存
+            if (fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                
+                if (file.size > 2 * 1024 * 1024) {
+                    alert("⚠️ 圖片大小超過 2MB，請先壓縮後再上傳！");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentDetail.cover = e.target.result;
+                    saveToStorage();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                saveToStorage();
+            }
+        }
+
+        function saveToStorage() {
+            try {
+                // 1. 更新箱書詳細資料 (library_box_details)
+                boxDetailsMap[currentBoxId] = currentDetail;
+                localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
+
+                // 2. 更新主清單資料 (library_boxes)，確保 Tags 被同步保存
+                let boxIndex = boxes.findIndex(b => b.id === currentBoxId);
+                if (boxIndex !== -1) {
+                    boxes[boxIndex].tags = mainBoxData.tags;
+                } else {
+                    boxes.push(mainBoxData);
+                }
+                localStorage.setItem("library_boxes", JSON.stringify(boxes));
+
+                document.getElementById("editPanel").style.display = "none";
+                document.getElementById("preview").style.display = "none";
+                document.getElementById("imageInput").value = ""; 
+                initView();
+                alert("✨ 資料與標籤已成功儲存更新！");
+            } catch (e) {
+                alert("⚠️ 儲存失敗：可能因為圖片過大導致瀏覽器儲存空間不足。");
+            }
+        }
+
+        function cancelEdit() {
+            document.getElementById("editPanel").style.display = "none";
+            document.getElementById("preview").style.display = "none";
+            document.getElementById("imageInput").value = "";
+        }
+
+        // 頁面初始化
+        initView();
+    </script>
+</body>
+</html>
