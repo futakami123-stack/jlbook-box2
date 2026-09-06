@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>圖書館箱書預約系統</title>
-    <!-- Microsoft Authentication Library (MSAL.js v2) -->
-    <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
     <style>
         :root {
             --primary: #4a6fa5;
@@ -94,13 +92,6 @@
 
         button:hover, .btn-link:hover {
             background-color: var(--primary-hover);
-        }
-
-        .btn-ms {
-            background-color: #0078d4;
-        }
-        .btn-ms:hover {
-            background-color: #005a9e;
         }
 
         .btn-opac {
@@ -358,6 +349,16 @@
             align-items: center;
             margin-bottom: 10px;
         }
+
+        /* 載入中動畫效果 */
+        .loading-spin {
+            display: inline-block;
+            animation: spin 1s infinite linear;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -366,8 +367,7 @@
         <header>
             <h1>📚 圖書館箱書預約系統</h1>
             <div class="role-section">
-                <span id="userInfo" style="font-size:0.9rem; font-weight:600;" class="hidden"></span>
-                <button id="msLoginBtn" onclick="handleMSLogin()" class="btn-ms">🔐 微軟帳號登入</button>
+                <span id="syncStatus" style="font-size:0.85rem; color:#666; font-weight:600;"></span>
                 <div id="roleBadge" class="role-badge">當前身分：📖 班級預約模式</div>
                 <!-- 🔗 學校圖書館館藏查詢按鈕 (請修改 href 網址為貴校圖書館網址) -->
                 <a href="https://esa.ntpc.edu.tw/014579/library" target="_blank" class="btn-link btn-opac">館藏查詢</a>
@@ -400,7 +400,7 @@
             <div class="form-group">
                 <select id="selectBox" style="min-width: 250px;"></select>
                 <input type="text" id="classInput" placeholder="請輸入班級 (例如: 801)" style="width: 180px;">
-                <button onclick="reserveBox()">送出預約</button>
+                <button id="btnReserve" onclick="reserveBox()">送出預約</button>
             </div>
         </div>
 
@@ -408,7 +408,7 @@
         <div class="table-header-controls">
             <h2 style="margin: 0; font-size: 1.2rem; color: #444;">📦 箱書清單</h2>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <button onclick="syncFromExcel()" style="background-color: #6c757d; padding: 4px 10px; font-size: 0.85rem;">🔄 重新讀取</button>
+                <button id="btnRefresh" onclick="syncFromGoogleSheets()" style="background-color: #6c757d; padding: 4px 10px; font-size: 0.85rem;">🔄 重新讀取</button>
                 <label for="pageSizeSelect" style="font-size: 0.9rem; color: #666;">每頁顯示：</label>
                 <select id="pageSizeSelect" onchange="changePageSize()">
                     <option value="10" selected>10 筆</option>
@@ -487,34 +487,16 @@
 
     <script>
         // ==========================================
-        // 1. MSAL.js 設定與全域變數
+        // 1. 全域變數與 Google Sheets (GAS) 設定
         // ==========================================
-        const msalConfig = {
-            auth: {
-                clientId: "YOUR_MICROSOFT_CLIENT_ID", // 請替換為您的 Azure App Client ID
-                authority: "https://login.microsoftonline.com/common",
-                redirectUri: window.location.origin + window.location.pathname
-            },
-            cache: {
-                cacheLocation: "sessionStorage",
-                storeAuthStateInCookie: false
-            }
-        };
-
-        const loginRequest = {
-            scopes: ["User.Read", "Files.ReadWrite.All"]
-        };
-
-        const myMSALObj = new msal.PublicClientApplication(msalConfig);
-        let currentUser = null;
-
-        // Microsoft Graph API Excel 表格 Endpoint (請設定為您在 OneDrive 上的 Excel 檔案項目 ID)
-        const BOXES_TABLE_URL = "https://graph.microsoft.com/v1.0/me/drive/items/YOUR_FILE_ID/workbook/tables/BoxesTable";
+        
+        // ⚠️【請注意】請將下方 URL 替換為您發布 Google Apps Script 取得的「網路應用程式 URL」
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykd777KYnNgPSWZFU7bGyMV4Vq2qMYTvo-FKOhQRxVMoCoZqmUUkyA2ARigm8GJK9L/exec";
 
         const STAFF_PASSWORD = "0000";
         let isStaff = false;
 
-        // 預設箱書資料
+        // 預設箱書備用資料（連線失敗或初始化時使用）
         const defaultBoxes = [
             { id: "BOX-001", topic: "兒童繪本精選", tags: ["繪本", "低年級", "品格"], count: 20, status: "可借閱", targetClass: "-" },
             { id: "BOX-002", topic: "科普探索系列", tags: ["科普", "自然", "高年級"], count: 15, status: "已預約", targetClass: "908 班" },
@@ -533,127 +515,66 @@
         let mgmtPageSize = 10;
 
         // ==========================================
-        // 2. Microsoft 驗證與 Token 取得
+        // 2. Google Sheets API 同步與寫入邏輯 (Fetch)
         // ==========================================
-        async function handleMSLogin() {
-            try {
-                const loginResponse = await myMSALObj.loginPopup(loginRequest);
-                currentUser = loginResponse.account;
-                updateAuthUI();
-                await syncFromExcel();
-            } catch (error) {
-                console.error("登入失敗:", error);
-            }
-        }
-
-        function updateAuthUI() {
-            const btnLogin = document.getElementById("msLoginBtn");
-            const userInfo = document.getElementById("userInfo");
-
-            const accounts = myMSALObj.getAllAccounts();
-            if (accounts.length > 0) {
-                currentUser = accounts[0];
-                btnLogin.innerText = "登出微軟";
-                btnLogin.onclick = () => { myMSALObj.logoutPopup(); currentUser = null; updateAuthUI(); };
-                userInfo.classList.remove("hidden");
-                userInfo.textContent = `👤 ${currentUser.name || currentUser.username}`;
-            } else {
-                btnLogin.innerText = "🔐 微軟帳號登入";
-                btnLogin.onclick = handleMSLogin;
-                userInfo.classList.add("hidden");
-                userInfo.textContent = "";
-            }
-        }
-
-        async function getAccessToken() {
-            const accounts = myMSALObj.getAllAccounts();
-            if (accounts.length === 0) throw new Error("使用者未登入");
-
-            const request = {
-                scopes: ["Files.ReadWrite.All"],
-                account: accounts[0]
-            };
+        
+        // 從 Google 試算表讀取最新資料
+        async function syncFromGoogleSheets() {
+            const syncStatusEl = document.getElementById("syncStatus");
+            const btnRefresh = document.getElementById("btnRefresh");
+            if (syncStatusEl) syncStatusEl.innerHTML = `<span class="loading-spin">🔄</span> 同步中...`;
+            if (btnRefresh) btnRefresh.disabled = true;
 
             try {
-                const response = await myMSALObj.acquireTokenSilent(request);
-                return response.accessToken;
-            } catch (error) {
-                console.warn("Silent token acquisition failed. Trying popup...");
-                const response = await myMSALObj.acquireTokenPopup(request);
-                return response.accessToken;
-            }
-        }
+                const res = await fetch(GOOGLE_SCRIPT_URL);
+                if (!res.ok) throw new Error("網路回應異常");
 
-        // ==========================================
-        // 3. Microsoft Graph API 同步邏輯
-        // ==========================================
-        async function updateBoxStatusToExcel(boxId, newStatus, targetClass) {
-            try {
-                const token = await getAccessToken();
-                const res = await fetch(`${BOXES_TABLE_URL}/rows`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error("讀取列資料失敗");
-                
                 const data = await res.json();
-                const rows = data.value || [];
-                const rowIndex = rows.findIndex(r => String(r.values[0][0]) === boxId);
-                
-                if (rowIndex !== -1) {
-                    const originalRow = rows[rowIndex].values[0];
-                    const updatedValues = [[
-                        originalRow[0], // id
-                        originalRow[1], // topic
-                        newStatus,      // status
-                        originalRow[3], // count
-                        originalRow[4], // tagsStr
-                        targetClass     // targetClass
-                    ]];
+                if (Array.isArray(data)) {
+                    boxes = data.map(item => ({
+                        id: String(item.id || item[0] || ""),
+                        topic: String(item.topic || item[1] || ""),
+                        status: String(item.status || item[2] || "可借閱"),
+                        count: parseInt(item.count || item[3]) || 0,
+                        tags: item.tags ? (Array.isArray(item.tags) ? item.tags : String(item.tags).split(",")) : [],
+                        targetClass: String(item.targetClass || item[5] || "-")
+                    }));
 
-                    await fetch(`${BOXES_TABLE_URL}/rows/itemAt(index=${rowIndex})`, {
-                        method: "PATCH",
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ values: updatedValues })
-                    });
-                    console.log(`[Excel 狀態同步成功] ${boxId} -> ${newStatus} (${targetClass})`);
-                }
-            } catch (e) {
-                console.error("更新狀態至 Excel 失敗:", e);
-            }
-        }
-
-        async function syncFromExcel() {
-            try {
-                const token = await getAccessToken();
-                const resBoxes = await fetch(`${BOXES_TABLE_URL}/rows`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (resBoxes.ok) {
-                    const dataBoxes = await resBoxes.json();
-                    boxes = dataBoxes.value.map(row => {
-                        const val = row.values[0];
-                        return {
-                            id: val[0],
-                            topic: val[1],
-                            status: val[2],
-                            count: val[3],
-                            tags: val[4] ? String(val[4]).split(",") : [],
-                            targetClass: val[5] || "-"
-                        };
-                    });
                     saveBoxes();
                     renderUI();
+                    if (syncStatusEl) syncStatusEl.innerHTML = `🟢 雲端已同步 (${new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})})`;
                 }
             } catch (e) {
-                console.warn("無法從 Microsoft API 讀取資料 (將以快取模式呈現):", e);
+                console.warn("無法從 Google 試算表讀取資料 (改用本地快取):", e);
+                if (syncStatusEl) syncStatusEl.innerHTML = `🟡 本地快取模式`;
+            } finally {
+                if (btnRefresh) btnRefresh.disabled = false;
+            }
+        }
+
+        // 送出更新至 Google 試算表 (新增 / 變更狀態 / 刪除 / 編輯)
+        async function postToGoogleSheets(action, payload) {
+            const syncStatusEl = document.getElementById("syncStatus");
+            if (syncStatusEl) syncStatusEl.innerHTML = `<span class="loading-spin">⏳</span> 儲存中...`;
+
+            try {
+                // 使用 Google Apps Script 要求 format = text/plain 以避免 CORS preflight 問題
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ action: action, ...payload })
+                });
+
+                console.log(`[Google Sheets 異動成功] Action: ${action}`, payload);
+                if (syncStatusEl) syncStatusEl.innerHTML = `🟢 雲端已儲存`;
+            } catch (e) {
+                console.error("寫入至 Google 試算表失敗:", e);
+                if (syncStatusEl) syncStatusEl.innerHTML = `🔴 儲存失敗 (僅存本地)`;
             }
         }
 
         // ==========================================
-        // 4. 本地快取與畫面渲染邏輯
+        // 3. 本地快取與畫面渲染邏輯
         // ==========================================
         function loadBoxesFromStorage() {
             const saved = localStorage.getItem("library_boxes");
@@ -880,6 +801,7 @@
             prevBtn.className = "page-btn";
             prevBtn.innerText = "◄ 上一頁";
             prevBtn.disabled = mgmtCurrentPage === 1;
+            mgmtCurrentPage = 1;
             prevBtn.onclick = () => { mgmtCurrentPage--; renderUI(); };
             btnContainer.appendChild(prevBtn);
 
@@ -900,7 +822,7 @@
         }
 
         // ==========================================
-        // 5. 箱書操作行為 (預約/借出/歸還/編輯)
+        // 4. 箱書操作行為 (預約/借出/歸還/編輯/新增)
         // ==========================================
         async function reserveBox() {
             const boxId = document.getElementById("selectBox").value;
@@ -915,11 +837,16 @@
                 targetBox.status = "已預約";
                 targetBox.targetClass = fullClassName;
                 document.getElementById("classInput").value = "";
+                
                 saveBoxes();
                 renderUI();
 
-                // 同步至 Excel
-                await updateBoxStatusToExcel(boxId, "已預約", fullClassName);
+                // 同步至 Google Sheets
+                await postToGoogleSheets("updateStatus", {
+                    id: boxId,
+                    status: "已預約",
+                    targetClass: fullClassName
+                });
 
                 alert(`【預約成功】\n\n${targetBox.targetClass} 已預約 ${targetBox.id}！隔日起可至教務處找閱推老師辦理正式借閱與領取！`);
             }
@@ -932,8 +859,12 @@
                 saveBoxes();
                 renderUI();
 
-                // 同步至 Excel
-                await updateBoxStatusToExcel(boxId, "已借出", targetBox.targetClass);
+                // 同步至 Google Sheets
+                await postToGoogleSheets("updateStatus", {
+                    id: boxId,
+                    status: "已借出",
+                    targetClass: targetBox.targetClass
+                });
             }
         }
 
@@ -945,12 +876,16 @@
                 saveBoxes();
                 renderUI();
 
-                // 同步至 Excel
-                await updateBoxStatusToExcel(boxId, "可借閱", "-");
+                // 同步至 Google Sheets
+                await postToGoogleSheets("updateStatus", {
+                    id: boxId,
+                    status: "可借閱",
+                    targetClass: "-"
+                });
             }
         }
 
-        function editBox(boxId) {
+        async function editBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (!targetBox) return;
 
@@ -965,16 +900,28 @@
             targetBox.topic = newTopic.trim();
             targetBox.tags = newTagsStr.split(",").map(t => t.trim()).filter(t => t !== "");
             targetBox.count = parseInt(newCount) || targetBox.count;
+            
             saveBoxes();
             renderUI();
+
+            // 同步至 Google Sheets
+            await postToGoogleSheets("edit", {
+                id: boxId,
+                topic: targetBox.topic,
+                tags: targetBox.tags.join(","),
+                count: targetBox.count
+            });
         }
 
-        function deleteBox(boxId) {
+        async function deleteBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？`)) {
                 boxes = boxes.filter(b => b.id !== boxId);
                 saveBoxes();
                 renderUI();
+
+                // 同步至 Google Sheets
+                await postToGoogleSheets("delete", { id: boxId });
             }
         }
 
@@ -996,7 +943,7 @@
             renderUI();
         }
 
-        function addNewBox() {
+        async function addNewBox() {
             const id = document.getElementById("newId").value.trim();
             const topic = document.getElementById("newTopic").value.trim();
             const tagsStr = document.getElementById("newTags").value.trim();
@@ -1006,37 +953,43 @@
             if (boxes.some(b => b.id === id)) { alert("該箱號已存在！"); return; }
 
             const tagsArr = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(t => t !== "") : [];
+            const newBox = { id: id, topic: topic, tags: tagsArr, count: parseInt(count), status: "可借閱", targetClass: "-" };
 
-            boxes.push({ id: id, topic: topic, tags: tagsArr, count: parseInt(count), status: "可借閱", targetClass: "-" });
+            boxes.push(newBox);
             document.getElementById("newId").value = "";
             document.getElementById("newTopic").value = "";
             document.getElementById("newTags").value = "";
             document.getElementById("newCount").value = "";
+            
             saveBoxes();
             renderUI();
+
+            // 同步至 Google Sheets
+            await postToGoogleSheets("add", {
+                id: id,
+                topic: topic,
+                tags: tagsArr.join(","),
+                count: parseInt(count),
+                status: "可借閱",
+                targetClass: "-"
+            });
         }
 
-        // 初始化與監聽
+        // ==========================================
+        // 5. 初始化與自動輪詢
+        // ==========================================
         window.addEventListener('load', async function () {
-            await myMSALObj.initialize();
-            updateAuthUI();
-
+            // 先載入本地快取快速呈現
             loadBoxesFromStorage();
             renderUI();
 
-            try {
-                await syncFromExcel();
-            } catch (e) {
-                console.log("尚未登入微軟帳號，使用本地快取展示。");
-            }
+            // 即時向 Google 試算表同步最新資料
+            await syncFromGoogleSheets();
 
-            // 自動輪詢 (每 20 秒背景自動與 Excel 同步最新狀態)
+            // 自動輪詢 (每 15 秒背景自動同步一次，確保多裝置即時更新)
             setInterval(() => {
-                const accounts = myMSALObj.getAllAccounts();
-                if (accounts.length > 0) {
-                    syncFromExcel();
-                }
-            }, 20000);
+                syncFromGoogleSheets();
+            }, 15000);
         });
 
         window.addEventListener('pageshow', function () {
