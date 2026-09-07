@@ -446,7 +446,7 @@
             const editPanel = document.getElementById("editPanel");
     
             if (!isStaff) {
-                const pwd = prompt("請輸入閱推老師管理密碼：");
+                const pwd = prompt("請輸入閱推老師管理密碼");
                 if (pwd === STAFF_PASSWORD) {
                     isStaff = true;
                     document.getElementById("authBtn").innerText = "🔓 切換/收合編輯器";
