@@ -929,7 +929,7 @@
 
         function toggleMode() {
             if (!isStaff) {
-                const password = prompt("請輸入閱推老師管理密碼： (預設 0000)");
+                const password = prompt("請輸入閱推老師管理密碼");
                 if (password === STAFF_PASSWORD) {
                     isStaff = true;
                     document.getElementById("roleBadge").innerHTML = "當前身分：<b style='color:#d35400;'>🛠️ 閱推老師管理模式</b>";
