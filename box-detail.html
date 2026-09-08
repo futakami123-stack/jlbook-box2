@@ -28,6 +28,9 @@
             color: #333;
         }
 
+        /* 隱藏工具類別 */
+        .hidden { display: none !important; }
+
         /* 頂部按鈕 */
         .btn-back { 
             background-color: #7f8c8d; 
@@ -290,10 +293,18 @@
                 <p style="font-size:12px; color:#888; margin-top:8px;">箱書推薦封面</p>
             </div>
 
-            <!-- 右側：導讀簡介 -->
+            <!-- 右側：導讀簡介與影片 -->
             <div class="description-box">
                 <h3>📖 箱書簡介與導讀</h3>
                 <div id="boxDescription" class="desc-text">讀取雲端資料中...</div>
+
+                <!-- 🎥 箱書介紹影片區塊 (預設隱藏) -->
+                <div id="videoSection" class="hidden" style="margin-top: 20px;">
+                    <h3 style="border-left-color: #e74c3c;">🎥 箱書介紹與導讀影片</h3>
+                    <div style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid #edf2f7; background: #000;">
+                        <iframe id="boxVideoIframe" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" allowfullscreen></iframe>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -327,6 +338,11 @@
                 <textarea id="editDescText" placeholder="請輸入本箱書的簡介、適合年級或導讀內容..."></textarea>
             </div>
 
+            <div class="form-group">
+                <label for="editVideoUrl">5. YouTube 介紹影片連結 (選填)：</label>
+                <input type="text" id="editVideoUrl" placeholder="例如：https://www.youtube.com/watch?v=xxxxxx">
+            </div>
+
             <button id="btnSave" class="btn-save" onclick="saveDetails()">💾 儲存修改</button>
             <button class="btn-cancel" onclick="cancelEdit()">取消</button>
         </div>
@@ -351,7 +367,8 @@
         let currentDetail = boxDetailsMap[currentBoxId] || {
             barcode: currentBoxId.replace("-", "00"),
             cover: "",
-            desc: "歡迎借閱本箱書！閱推老師可登入編輯此處的導讀內容、館藏登錄號與封面照片。"
+            desc: "歡迎借閱本箱書！閱推老師可登入編輯此處的導讀內容、館藏登錄號與封面照片。",
+            videoUrl: ""
         };
 
         if (!mainBoxData.tags) { mainBoxData.tags = []; }
@@ -365,6 +382,27 @@
 
             document.getElementById("coverImg").src = currentDetail.cover || defaultCover;
             document.getElementById("boxDescription").innerText = currentDetail.desc;
+
+            // 🎥 處理影片顯示與隱藏（正規表達式強固版）
+            const videoSection = document.getElementById("videoSection");
+            const boxVideoIframe = document.getElementById("boxVideoIframe");
+            const rawUrl = currentDetail.videoUrl ? currentDetail.videoUrl.trim() : "";
+
+            function getYouTubeId(url) {
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                const match = url.match(regExp);
+                return (match && match[2].length === 11) ? match[2] : null;
+            }
+
+            const videoId = getYouTubeId(rawUrl);
+
+            if (videoId) {
+                boxVideoIframe.src = `https://www.youtube.com/embed/${videoId}`;
+                videoSection.classList.remove("hidden");
+            } else {
+                boxVideoIframe.src = "";
+                videoSection.classList.add("hidden");
+            }
 
             renderTags();
         }
@@ -389,7 +427,8 @@
                         currentDetail = {
                             barcode: found.barcode || currentDetail.barcode,
                             cover: found.cover || currentDetail.cover,
-                            desc: found.desc || currentDetail.desc
+                            desc: found.desc || currentDetail.desc,
+                            videoUrl: found.videoUrl || currentDetail.videoUrl
                         };
                         boxDetailsMap[currentBoxId] = currentDetail;
                         localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
@@ -455,8 +494,9 @@
                     // 帶入原本的資料
                     document.getElementById("barcodeInput").value = currentDetail.barcode || "";
                     document.getElementById("editDescText").value = currentDetail.desc;
+                    document.getElementById("editVideoUrl").value = currentDetail.videoUrl || "";
             
-                    // 🔽 【新增這幾行】把現有的封面網址填進輸入框，並讓預覽圖秀出來
+                    // 帶入封面網址與預覽圖
                     document.getElementById("imageUrlInput").value = currentDetail.cover || "";
                     if (currentDetail.cover) {
                         const preview = document.getElementById("preview");
@@ -470,12 +510,11 @@
                     alert("密碼錯誤！");
                 }
             } else {
-                // 如果已經是老師身分，點擊按鈕是收合或展開編輯面板
                 editPanel.style.display = editPanel.style.display === "none" ? "block" : "none";
         
-                // 展開時也順便更新一下輸入框與預覽圖
                 if (editPanel.style.display === "block") {
                     document.getElementById("imageUrlInput").value = currentDetail.cover || "";
+                    document.getElementById("editVideoUrl").value = currentDetail.videoUrl || "";
                     if (currentDetail.cover) {
                         const preview = document.getElementById("preview");
                         preview.src = currentDetail.cover;
@@ -500,6 +539,7 @@
             const imageUrlInput = document.getElementById("imageUrlInput").value.trim();
             const newBarcode = document.getElementById("barcodeInput").value.trim();
             const newDesc = document.getElementById("editDescText").value.trim();
+            const newVideoUrl = document.getElementById("editVideoUrl").value.trim();
 
             currentDetail.barcode = newBarcode || "未設定";
 
@@ -507,12 +547,12 @@
                 currentDetail.desc = newDesc;
             }
 
-            // 如果有輸入新的圖片網址，就更新封面
             if (imageUrlInput !== "") {
                 currentDetail.cover = imageUrlInput;
             }
 
-            // 直接儲存並同步到雲端與 LocalStorage
+            currentDetail.videoUrl = newVideoUrl;
+
             saveToStorageAndCloud();
         }
 
@@ -523,7 +563,6 @@
             saveBtn.innerText = "⏳ 雲端同步中...";
 
             try {
-                // 更新 LocalStorage
                 boxDetailsMap[currentBoxId] = currentDetail;
                 localStorage.setItem("library_box_details", JSON.stringify(boxDetailsMap));
 
@@ -533,17 +572,18 @@
                     boxes[boxIndex].barcode = currentDetail.barcode;
                     boxes[boxIndex].cover = currentDetail.cover;
                     boxes[boxIndex].desc = currentDetail.desc;
+                    boxes[boxIndex].videoUrl = currentDetail.videoUrl;
                 }
                 localStorage.setItem("library_boxes", JSON.stringify(boxes));
 
-                // 發送 POST 請求更新 Google 試算表
                 const payload = {
-                    action: "updateDetail", // 搭配後端 Apps Script 的動作辨識
+                    action: "updateDetail",
                     id: currentBoxId,
                     barcode: currentDetail.barcode,
                     tags: mainBoxData.tags.join(","),
                     cover: currentDetail.cover,
-                    desc: currentDetail.desc
+                    desc: currentDetail.desc,
+                    videoUrl: currentDetail.videoUrl
                 };
 
                 await fetch(GOOGLE_SCRIPT_URL, {
@@ -556,7 +596,7 @@
                 document.getElementById("preview").style.display = "none";
                 document.getElementById("imageUrlInput").value = ""; 
                 initView();
-                alert("✨ 資料與標籤已成功更新至雲端與本地！");
+                alert("✨ 資料、標籤與影片連結已成功更新至雲端與本地！");
             } catch (e) {
                 console.error(e);
                 alert("⚠️ 本地已儲存，但同步至雲端時出錯。");
@@ -574,7 +614,7 @@
 
         // 頁面初始化
         initView();
-        fetchCloudData(); // 頁面載入時嘗試從雲端抓取最新資料
+        fetchCloudData();
     </script>
 </body>
 </html>
