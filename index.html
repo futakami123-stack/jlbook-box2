@@ -189,16 +189,16 @@
             border-color: var(--primary);
         }
 
-        /* 標籤按鈕區塊 */
-        .tag-filter-container {
-            margin-bottom: 20px;
+        /* 篩選列統一樣式 */
+        .filter-row {
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
         }
 
-        .tag-filter-title {
+        .filter-title {
             font-weight: bold;
             font-size: 0.95rem;
             color: #555;
@@ -223,6 +223,23 @@
             background-color: var(--primary);
             color: white;
             border-color: var(--primary);
+        }
+
+        /* 狀態快篩專屬按鈕樣式 */
+        .status-filter-btn {
+            background-color: #f8f9fa;
+            border: 1px solid #ced4da;
+            color: #495057;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .status-filter-btn.active {
+            background-color: #334155;
+            color: white;
+            border-color: #334155;
         }
 
         .tag-badge {
@@ -260,10 +277,10 @@
         }
 
         .status-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 700;
             display: inline-block;
         }
 
@@ -350,7 +367,6 @@
             margin-bottom: 10px;
         }
 
-        /* 載入中動畫效果 */
         .loading-spin {
             display: inline-block;
             animation: spin 1s infinite linear;
@@ -369,7 +385,6 @@
             <div class="role-section">
                 <span id="syncStatus" style="font-size:0.85rem; color:#666; font-weight:600;"></span>
                 <div id="roleBadge" class="role-badge">當前身分：📖 班級預約模式</div>
-                <!-- 🔗 學校圖書館館藏查詢按鈕 (請修改 href 網址為貴校圖書館網址) -->
                 <a href="https://esa.ntpc.edu.tw/014579/library" target="_blank" class="btn-link btn-opac">館藏查詢</a>
                 <button id="authBtn" onclick="toggleMode()">閱推老師登入</button>
             </div>
@@ -388,9 +403,20 @@
             </ol>
         </div>
 
+        <!-- 🔍 狀態快速篩選列 (新增：讓老師與班級一鍵篩選狀態) -->
+        <div class="filter-row">
+            <span class="filter-title">⚡ 狀態快篩：</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button class="status-filter-btn active" onclick="filterByStatus('ALL')" id="statusAll">全部箱書</button>
+                <button class="status-filter-btn" onclick="filterByStatus('可借閱')" id="statusReady">🟢 可借閱</button>
+                <button class="status-filter-btn" onclick="filterByStatus('已預約')" id="statusReserved">🟠 已預約</button>
+                <button class="status-filter-btn" onclick="filterByStatus('已借出')" id="statusBorrowed">🔴 已借出</button>
+            </div>
+        </div>
+
         <!-- 標籤篩選列 -->
-        <div class="tag-filter-container">
-            <span class="tag-filter-title">🏷️ 標籤篩選：</span>
+        <div class="filter-row">
+            <span class="filter-title">🏷️ 標籤篩選：</span>
             <div id="tagFilterButtons" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
         </div>
 
@@ -425,8 +451,8 @@
                     <th>主題名稱</th>
                     <th>主題標籤</th>
                     <th style="width: 80px;">冊數</th>
-                    <th style="width: 100px;">狀態</th>
-                    <th style="width: 120px;">預約/借閱班級</th>
+                    <th style="width: 110px;">目前狀態</th>
+                    <th style="width: 130px;">預約/借閱班級</th>
                     <th class="staff-col hidden" style="width: 150px;">管理操作</th>
                 </tr>
             </thead>
@@ -447,7 +473,7 @@
             <div class="form-group" style="margin-bottom: 25px;">
                 <input type="text" id="newId" placeholder="箱號 (例: BOX-004)" style="width: 120px;">
                 <input type="text" id="newTopic" placeholder="主題 (例: 歷史故事)" style="width: 200px;">
-                <input type="text" id="newTags" placeholder="標籤 (請用半角逗號隔開, 例: 歷史,故事)" style="width: 250px;">
+                <input type="text" id="newTags" placeholder="標籤 (半角逗號隔開, 例: 歷史,故事)" style="width: 250px;">
                 <input type="number" id="newCount" placeholder="冊數" style="width: 80px;">
                 <button onclick="addNewBox()">新增箱書</button>
             </div>
@@ -470,14 +496,13 @@
                         <th>主題名稱</th>
                         <th>主題標籤</th>
                         <th style="width: 80px;">冊數</th>
-                        <th style="width: 100px;">狀態</th>
+                        <th style="width: 110px;">狀態</th>
                         <th style="width: 160px;">操作</th>
                     </tr>
                 </thead>
                 <tbody id="mgmtTableBody"></tbody>
             </table>
 
-            <!-- 後台分頁器 -->
             <div class="pagination-container">
                 <div id="mgmtPageInfo" class="page-info"></div>
                 <div id="mgmtPaginationButtons" class="page-buttons"></div>
@@ -486,17 +511,10 @@
     </div>
 
     <script>
-        // ==========================================
-        // 1. 全域變數與 Google Sheets (GAS) 設定
-        // ==========================================
-        
-        // ⚠️【請注意】請將下方 URL 替換為您發布 Google Apps Script 取得的「網路應用程式 URL」
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykd777KYnNgPSWZFU7bGyMV4Vq2qMYTvo-FKOhQRxVMoCoZqmUUkyA2ARigm8GJK9L/exec";
-
         const STAFF_PASSWORD = "0000";
         let isStaff = false;
 
-        // 預設箱書備用資料（連線失敗或初始化時使用）
         const defaultBoxes = [
             { id: "BOX-001", topic: "兒童繪本精選", tags: ["繪本", "低年級", "品格"], count: 20, status: "可借閱", targetClass: "-" },
             { id: "BOX-002", topic: "科普探索系列", tags: ["科普", "自然", "高年級"], count: 15, status: "已預約", targetClass: "908 班" },
@@ -504,21 +522,14 @@
         ];
 
         let boxes = [];
-
-        // 前台分頁與篩選狀態
         let currentPage = 1;
         let pageSize = 10;
         let selectedTag = "ALL";
+        let selectedStatus = "ALL"; // 👈 新增：狀態篩選變數
 
-        // 後台分頁狀態
         let mgmtCurrentPage = 1;
         let mgmtPageSize = 10;
 
-        // ==========================================
-        // 2. Google Sheets API 同步與寫入邏輯 (Fetch)
-        // ==========================================
-        
-        // 從 Google 試算表讀取最新資料
         async function syncFromGoogleSheets() {
             const syncStatusEl = document.getElementById("syncStatus");
             const btnRefresh = document.getElementById("btnRefresh");
@@ -552,20 +563,17 @@
             }
         }
 
-        // 送出更新至 Google 試算表 (新增 / 變更狀態 / 刪除 / 編輯)
         async function postToGoogleSheets(action, payload) {
             const syncStatusEl = document.getElementById("syncStatus");
             if (syncStatusEl) syncStatusEl.innerHTML = `<span class="loading-spin">⏳</span> 儲存中...`;
 
             try {
-                // 使用 Google Apps Script 要求 format = text/plain 以避免 CORS preflight 問題
                 await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({ action: action, ...payload })
                 });
 
-                console.log(`[Google Sheets 異動成功] Action: ${action}`, payload);
                 if (syncStatusEl) syncStatusEl.innerHTML = `🟢 雲端已儲存`;
             } catch (e) {
                 console.error("寫入至 Google 試算表失敗:", e);
@@ -573,17 +581,10 @@
             }
         }
 
-        // ==========================================
-        // 3. 本地快取與畫面渲染邏輯
-        // ==========================================
         function loadBoxesFromStorage() {
             const saved = localStorage.getItem("library_boxes");
             if (saved) {
-                try {
-                    boxes = JSON.parse(saved);
-                } catch (e) {
-                    boxes = defaultBoxes;
-                }
+                try { boxes = JSON.parse(saved); } catch (e) { boxes = defaultBoxes; }
             } else {
                 boxes = defaultBoxes;
             }
@@ -617,6 +618,23 @@
             renderUI();
         }
 
+        // 👈 新增：點擊狀態快篩按鈕的邏輯
+        function filterByStatus(status) {
+            selectedStatus = status;
+            currentPage = 1;
+            
+            // 更新狀態按鈕的 active 樣式
+            ["statusAll", "statusReady", "statusReserved", "statusBorrowed"].forEach(id => {
+                document.getElementById(id).classList.remove("active");
+            });
+            if (status === 'ALL') document.getElementById("statusAll").classList.add("active");
+            if (status === '可借閱') document.getElementById("statusReady").classList.add("active");
+            if (status === '已預約') document.getElementById("statusReserved").classList.add("active");
+            if (status === '已借出') document.getElementById("statusBorrowed").classList.add("active");
+
+            renderUI();
+        }
+
         function changePageSize() {
             pageSize = parseInt(document.getElementById("pageSizeSelect").value) || 10;
             currentPage = 1;
@@ -630,19 +648,19 @@
         }
 
         function renderUI() {
-            // 箱號自然排序
             boxes.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
 
-            // 1. 重新渲染 TAG 篩選列
             renderTagFilters();
 
-            // 2. 前台：標籤過濾
+            // 1. 狀態篩選 + 標籤篩選雙重過濾
             let filteredBoxes = boxes;
+            if (selectedStatus !== "ALL") {
+                filteredBoxes = filteredBoxes.filter(box => box.status === selectedStatus);
+            }
             if (selectedTag !== "ALL") {
-                filteredBoxes = boxes.filter(box => box.tags && box.tags.includes(selectedTag));
+                filteredBoxes = filteredBoxes.filter(box => box.tags && box.tags.includes(selectedTag));
             }
 
-            // 前台分頁計算
             const totalItems = filteredBoxes.length;
             const totalPages = Math.ceil(totalItems / pageSize) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
@@ -650,7 +668,6 @@
             const startIndex = (currentPage - 1) * pageSize;
             const pageBoxes = filteredBoxes.slice(startIndex, startIndex + pageSize);
 
-            // DOM 容器
             const tbody = document.getElementById("boxTableBody");
             const select = document.getElementById("selectBox");
             const staffHeader = document.getElementById("staffHeader");
@@ -670,18 +687,24 @@
                 }
             }
 
-            // 控制表格「管理操作」欄位顯示
             document.querySelectorAll(".staff-col").forEach(el => {
                 if (isStaff) el.classList.remove("hidden");
                 else el.classList.add("hidden");
             });
 
-            // 3. 渲染前台表格內容
+            // 2. 渲染前台表格（加上圖示讓狀態一目了然）
             if (tbody) {
                 pageBoxes.forEach(box => {
                     let statusClass = "status-ready";
-                    if (box.status === "已預約") statusClass = "status-reserved";
-                    if (box.status === "已借出") statusClass = "status-borrowed";
+                    let statusText = `🟢 ${box.status}`;
+                    if (box.status === "已預約") {
+                        statusClass = "status-reserved";
+                        statusText = `🟠 ${box.status}`;
+                    }
+                    if (box.status === "已借出") {
+                        statusClass = "status-borrowed";
+                        statusText = `🔴 ${box.status}`;
+                    }
 
                     const topicWithLink = `<a href="box-detail.html?id=${box.id}" target="_blank" class="opac-link" title="查看與編輯 ${box.topic}">${box.topic} 🖼️</a>`;
                     const tagBadges = (box.tags || []).map(t => `<span class="tag-badge">#${t}</span>`).join("") || "-";
@@ -701,7 +724,7 @@
                             <td>${topicWithLink}</td>
                             <td>${tagBadges}</td>
                             <td>${box.count} 本</td>
-                            <td><span class="status-badge ${statusClass}">${box.status}</span></td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                             <td><b>${box.targetClass}</b></td>
                             <td class="staff-col ${isStaff ? '' : 'hidden'}">${staffActionBtn}</td>
                         </tr>
@@ -709,7 +732,7 @@
                 });
             }
 
-            // 4. 渲染後台表格內容 (登入時)
+            // 3. 後台渲染
             if (isStaff && mgmtTbody) {
                 const mgmtTotalItems = boxes.length;
                 const mgmtTotalPages = Math.ceil(mgmtTotalItems / mgmtPageSize) || 1;
@@ -720,8 +743,9 @@
 
                 mgmtPageBoxes.forEach(box => {
                     let statusClass = "status-ready";
-                    if (box.status === "已預約") statusClass = "status-reserved";
-                    if (box.status === "已借出") statusClass = "status-borrowed";
+                    let statusText = `🟢 ${box.status}`;
+                    if (box.status === "已預約") { statusClass = "status-reserved"; statusText = `🟠 ${box.status}`; }
+                    if (box.status === "已借出") { statusClass = "status-borrowed"; statusText = `🔴 ${box.status}`; }
                     const tagBadges = (box.tags || []).map(t => `<span class="tag-badge">#${t}</span>`).join("") || "-";
 
                     mgmtTbody.innerHTML += `
@@ -730,7 +754,7 @@
                             <td>${box.topic}</td>
                             <td>${tagBadges}</td>
                             <td>${box.count} 本</td>
-                            <td><span class="status-badge ${statusClass}">${box.status}</span></td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                             <td>
                                 <button class="btn-edit" onclick="editBox('${box.id}')">編輯資料</button>
                                 <button class="btn-delete" onclick="deleteBox('${box.id}')">移除</button>
@@ -742,14 +766,13 @@
                 renderMgmtPagination(mgmtTotalItems, mgmtTotalPages);
             }
 
-            // 5. 更新預約下拉選單
+            // 4. 下拉選單更新
             if (select) {
                 boxes.forEach(box => {
                     if (box.status === "可借閱") {
                         select.innerHTML += `<option value="${box.id}">${box.id} (${box.topic})</option>`;
                     }
                 });
-
                 if (select.innerHTML === "") {
                     select.innerHTML = `<option value="">-- 目前無可預約箱書 --</option>`;
                 }
@@ -801,7 +824,6 @@
             prevBtn.className = "page-btn";
             prevBtn.innerText = "◄ 上一頁";
             prevBtn.disabled = mgmtCurrentPage === 1;
-            mgmtCurrentPage = 1;
             prevBtn.onclick = () => { mgmtCurrentPage--; renderUI(); };
             btnContainer.appendChild(prevBtn);
 
@@ -821,9 +843,6 @@
             btnContainer.appendChild(nextBtn);
         }
 
-        // ==========================================
-        // 4. 箱書操作行為 (預約/借出/歸還/編輯/新增)
-        // ==========================================
         async function reserveBox() {
             const boxId = document.getElementById("selectBox").value;
             const className = document.getElementById("classInput").value.trim();
@@ -841,7 +860,6 @@
                 saveBoxes();
                 renderUI();
 
-                // 同步至 Google Sheets
                 await postToGoogleSheets("updateStatus", {
                     id: boxId,
                     status: "已預約",
@@ -859,7 +877,6 @@
                 saveBoxes();
                 renderUI();
 
-                // 同步至 Google Sheets
                 await postToGoogleSheets("updateStatus", {
                     id: boxId,
                     status: "已借出",
@@ -876,7 +893,6 @@
                 saveBoxes();
                 renderUI();
 
-                // 同步至 Google Sheets
                 await postToGoogleSheets("updateStatus", {
                     id: boxId,
                     status: "可借閱",
@@ -904,7 +920,6 @@
             saveBoxes();
             renderUI();
 
-            // 同步至 Google Sheets
             await postToGoogleSheets("edit", {
                 id: boxId,
                 topic: targetBox.topic,
@@ -916,13 +931,10 @@
         async function deleteBox(boxId) {
             const targetBox = boxes.find(b => b.id === boxId);
             if (targetBox && confirm(`確定要刪除 ${boxId} 嗎？`)) {
-                // 先向 Google Sheets 發送刪除請求
                 await postToGoogleSheets("delete", { id: boxId });        
-                // 本地陣列移除
                 boxes = boxes.filter(b => b.id !== boxId);
                 saveBoxes();
                 renderUI();
-        
                 alert("已成功刪除箱書！");
             }
         }
@@ -966,7 +978,6 @@
             saveBoxes();
             renderUI();
 
-            // 同步至 Google Sheets
             await postToGoogleSheets("add", {
                 id: id,
                 topic: topic,
@@ -977,21 +988,11 @@
             });
         }
 
-        // ==========================================
-        // 5. 初始化與自動輪詢
-        // ==========================================
         window.addEventListener('load', async function () {
-            // 先載入本地快取快速呈現
             loadBoxesFromStorage();
             renderUI();
-
-            // 即時向 Google 試算表同步最新資料
             await syncFromGoogleSheets();
-
-            // 自動輪詢 (每 15 秒背景自動同步一次，確保多裝置即時更新)
-            setInterval(() => {
-                syncFromGoogleSheets();
-            }, 15000);
+            setInterval(() => { syncFromGoogleSheets(); }, 15000);
         });
 
         window.addEventListener('pageshow', function () {
