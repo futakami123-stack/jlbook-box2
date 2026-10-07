@@ -62,41 +62,42 @@
 </head>
 <body class="p-3 sm:p-6 flex justify-center min-h-screen">
 
-    <div class="w-full max-w-5xl bg-white p-4 sm:p-8 rounded-2xl shadow-sm border border-slate-200/90 space-y-5">
+    <div class="w-full max-w-5xl bg-white p-3.5 sm:p-8 rounded-2xl shadow-sm border border-slate-200/90 space-y-5">
         
-        <!-- 📱 Header -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
+        <!-- 📱 Header (修正手機版單一行排版) -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-4 border-b border-slate-100 gap-3">
             <div>
                 <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-2">
                     <span>📚</span> 圖書館箱書預約系統
                 </h1>
-                <div class="flex items-center gap-2 mt-1.5 text-sm font-medium text-slate-500">
+                <div class="flex items-center gap-2 mt-1 text-xs sm:text-sm font-medium text-slate-500">
                     <span id="syncStatus">🔄 雲端同步中...</span>
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-                <div id="roleBadge" class="text-sm font-semibold px-3.5 py-1.5 bg-slate-100 text-slate-600 rounded-full border border-slate-200">
-                    📖 班級預約模式
+            <!-- 右側按鈕群：手機版併排單行 -->
+            <div class="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2.5 w-full lg:w-auto">
+                <div id="roleBadge" class="text-xs sm:text-sm font-semibold px-2 sm:px-3.5 py-2 bg-slate-100 text-slate-600 rounded-xl border border-slate-200 text-center truncate">
+                    📖 班級預約
                 </div>
-                <a href="https://esa.ntpc.edu.tw/014579/library" target="_blank" class="text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3.5 py-2 rounded-xl transition-all">
+                <a href="https://esa.ntpc.edu.tw/014579/library" target="_blank" class="text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-2 sm:px-3.5 py-2 rounded-xl transition-all text-center truncate">
                     館藏查詢
                 </a>
                 
                 <!-- 🌸 閱推老師登入按鈕 -->
-                <button id="authBtn" onclick="toggleMode()" class="text-sm font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-sm hover:shadow px-4 py-2 rounded-xl transition-all flex items-center gap-2 ml-auto md:ml-0">
+                <button id="authBtn" onclick="toggleMode()" class="text-xs sm:text-sm font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-sm hover:shadow px-2 sm:px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-1">
                     <span>🔑</span> <span id="authBtnText">閱推老師登入</span>
                 </button>
             </div>
         </header>
 
-        <div id="staffHeader" class="hidden bg-rose-50 border border-rose-200 text-rose-900 p-3 rounded-xl text-sm font-medium flex items-center justify-between gap-2">
+        <div id="staffHeader" class="hidden bg-rose-50 border border-rose-200 text-rose-900 p-3 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-between gap-2">
             <span class="flex items-center gap-2">⚙️ 閱推老師管理模式已啟用 (前台清單可直接辦理「確認借出」與「歸還」)</span>
         </div>
 
         <!-- 📌 注意事項 -->
-        <div class="bg-slate-50 border-l-4 border-slate-400 p-3.5 rounded-r-xl text-sm sm:text-base text-slate-700 space-y-1">
-            <h3 class="font-bold text-slate-800 flex items-center gap-1.5 text-base sm:text-lg">
+        <div class="bg-slate-50 border-l-4 border-slate-400 p-3.5 rounded-r-xl text-xs sm:text-base text-slate-700 space-y-1">
+            <h3 class="font-bold text-slate-800 flex items-center gap-1.5 text-sm sm:text-lg">
                 <span>⚠️</span> 預約與領取注意事項
             </h3>
             <ol class="list-decimal pl-5 space-y-0.5 text-slate-600">
@@ -108,18 +109,18 @@
         <!-- 🔍 狀態與標籤快篩 -->
         <div class="space-y-3 bg-slate-50/70 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80">
             <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                <span class="text-sm font-bold text-slate-600 shrink-0">⚡ 狀態快篩：</span>
-                <div class="flex flex-wrap gap-2">
-                    <button class="status-filter-btn px-3 py-1 text-sm rounded-full border border-slate-700 bg-slate-700 text-white font-medium transition-all" onclick="filterByStatus('ALL')" id="statusAll">全部箱書</button>
-                    <button class="status-filter-btn px-3 py-1 text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all" onclick="filterByStatus('可借閱')" id="statusReady">🟢 可借閱</button>
-                    <button class="status-filter-btn px-3 py-1 text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all" onclick="filterByStatus('已預約')" id="statusReserved">🟠 已預約</button>
-                    <button class="status-filter-btn px-3 py-1 text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all" onclick="filterByStatus('已借出')" id="statusBorrowed">🔴 已借出</button>
+                <span class="text-xs sm:text-sm font-bold text-slate-600 shrink-0">⚡ 狀態快篩：</span>
+                <div class="flex flex-wrap gap-1.5 sm:gap-2">
+                    <button class="status-filter-btn px-2.5 py-1 text-xs sm:text-sm rounded-full border border-slate-700 bg-slate-700 text-white font-medium transition-all" onclick="filterByStatus('ALL')" id="statusAll">全部箱書</button>
+                    <button class="status-filter-btn px-2.5 py-1 text-xs sm:text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all" onclick="filterByStatus('可借閱')" id="statusReady">🟢 可借閱</button>
+                    <button class="status-filter-btn px-2.5 py-1 text-xs sm:text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all" onclick="filterByStatus('已預約')" id="statusReserved">🟠 已預約</button>
+                    <button class="status-filter-btn px-2.5 py-1 text-xs sm:text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all" onclick="filterByStatus('已借出')" id="statusBorrowed">🔴 已借出</button>
                 </div>
             </div>
 
             <div class="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-slate-200/70">
-                <span class="text-sm font-bold text-slate-600 shrink-0">🏷️ 標籤篩選：</span>
-                <div id="tagFilterButtons" class="flex flex-wrap gap-2"></div>
+                <span class="text-xs sm:text-sm font-bold text-slate-600 shrink-0">🏷️ 標籤篩選：</span>
+                <div id="tagFilterButtons" class="flex flex-wrap gap-1.5 sm:gap-2"></div>
             </div>
         </div>
 
@@ -127,20 +128,22 @@
         <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-2.5">
             <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">📖 班級預約箱書</h2>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <select id="selectBox" class="sm:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"></select>
-                <input type="text" id="classInput" placeholder="請輸入班級 (例如: 801)" class="sm:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300">
-                <button id="btnReserve" onclick="reserveBox()" class="sm:col-span-1 bg-slate-700 hover:bg-slate-800 text-white font-medium p-2.5 rounded-xl text-sm transition-all">送出預約</button>
+                <select id="selectBox" class="sm:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"></select>
+                <input type="text" id="classInput" placeholder="請輸入班級 (例如: 801)" class="sm:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300">
+                <button id="btnReserve" onclick="reserveBox()" class="sm:col-span-1 bg-slate-700 hover:bg-slate-800 text-white font-medium p-2.5 rounded-xl text-xs sm:text-sm transition-all">送出預約</button>
             </div>
         </div>
 
-        <!-- 📦 箱書清單標頭 -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-1">
-            <h2 class="text-lg sm:text-xl font-bold text-slate-800">📦 箱書清單</h2>
-            <div class="flex items-center gap-3 self-end sm:self-auto text-sm text-slate-500">
-                <button id="btnRefresh" onclick="syncFromGoogleSheets()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-xl border border-slate-200 font-medium transition-all">⟳ 整理刷新</button>
-                <div class="flex items-center gap-1.5">
-                    <label for="pageSizeSelect">每頁：</label>
-                    <select id="pageSizeSelect" onchange="changePageSize()" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm">
+        <!-- 📦 箱書清單標頭 (優化手機版整理刷新排版) -->
+        <div class="flex flex-row justify-between items-center gap-2 pt-1">
+            <h2 class="text-base sm:text-xl font-bold text-slate-800 shrink-0">📦 箱書清單</h2>
+            <div class="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-slate-500">
+                <button id="btnRefresh" onclick="syncFromGoogleSheets()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-xl border border-slate-200 font-medium transition-all flex items-center gap-1">
+                    <span>⟳</span> <span>整理刷新</span>
+                </button>
+                <div class="flex items-center gap-1">
+                    <label for="pageSizeSelect" class="hidden sm:inline">每頁：</label>
+                    <select id="pageSizeSelect" onchange="changePageSize()" class="bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1 text-xs sm:text-sm">
                         <option value="10" selected>10 筆</option>
                         <option value="20">20 筆</option>
                         <option value="50">50 筆</option>
@@ -171,47 +174,47 @@
         <div id="boxCardContainer" class="grid grid-cols-1 gap-3 md:hidden"></div>
 
         <!-- 前台分頁控制列 -->
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-1 text-sm text-slate-500">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-1 text-xs sm:text-sm text-slate-500">
             <div id="pageInfo" class="font-medium text-slate-600"></div>
             <div id="paginationButtons" class="flex flex-wrap justify-center gap-1.5 w-full sm:w-auto"></div>
         </div>
 
         <!-- 🛠️ 後台管理區塊 (頁籤切換設計) -->
-        <div id="staffPanel" class="hidden bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+        <div id="staffPanel" class="hidden bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 pb-3">
-                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
                     <span>🛠️</span> 閱推老師後台管理
                 </h2>
                 
                 <div class="flex bg-slate-200/70 p-1 rounded-xl w-full sm:w-auto">
-                    <button id="tabBtnAdd" onclick="switchStaffTab('add')" class="flex-1 sm:flex-none px-4 py-1.5 text-sm font-bold rounded-lg bg-white text-slate-800 shadow-2xs transition-all">
+                    <button id="tabBtnAdd" onclick="switchStaffTab('add')" class="flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-white text-slate-800 shadow-2xs transition-all">
                         ➕ 快速新增箱書
                     </button>
-                    <button id="tabBtnMgmt" onclick="switchStaffTab('mgmt')" class="flex-1 sm:flex-none px-4 py-1.5 text-sm font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all">
+                    <button id="tabBtnMgmt" onclick="switchStaffTab('mgmt')" class="flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all">
                         📋 資料編輯與刪除
                     </button>
                 </div>
             </div>
 
             <!-- 頁籤 1：新增箱書 -->
-            <div id="addBoxTab" class="bg-white p-4 rounded-xl border border-slate-200 space-y-2.5">
-                <h3 class="text-sm font-bold text-slate-700">➕ 建立新箱書資料 (箱號或主題若包含「巡迴」，將會自動套用莫蘭迪綠高亮背景)</h3>
+            <div id="addBoxTab" class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 space-y-2.5">
+                <h3 class="text-xs sm:text-sm font-bold text-slate-700">➕ 建立新箱書資料 (箱號或主題若包含「巡迴」，將會自動套用莫蘭迪綠高亮背景)</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-                    <input type="text" id="newId" placeholder="箱號 (例: 巡迴-01)" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm">
-                    <input type="text" id="newTopic" placeholder="主題名稱" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm">
-                    <input type="text" id="newTags" placeholder="標籤 (逗號分隔)" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm">
-                    <input type="number" id="newCount" placeholder="冊數" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm">
-                    <button onclick="addNewBox()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-2.5 rounded-lg text-sm transition-all shadow-2xs">確定新增</button>
+                    <input type="text" id="newId" placeholder="箱號 (例: 巡迴-01)" class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs sm:text-sm">
+                    <input type="text" id="newTopic" placeholder="主題名稱" class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs sm:text-sm">
+                    <input type="text" id="newTags" placeholder="標籤 (逗號分隔)" class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs sm:text-sm">
+                    <input type="number" id="newCount" placeholder="冊數" class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs sm:text-sm">
+                    <button onclick="addNewBox()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-2 rounded-lg text-xs sm:text-sm transition-all shadow-2xs">確定新增</button>
                 </div>
             </div>
 
             <!-- 頁籤 2：管理與修改清單 -->
             <div id="mgmtListTab" class="hidden space-y-3 pt-1">
                 <div class="flex justify-between items-center">
-                    <h3 class="text-sm font-bold text-slate-700">📋 箱書基本資料修改與刪除</h3>
-                    <div class="text-sm text-slate-500 flex items-center gap-1.5">
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-700">📋 箱書基本資料修改與刪除</h3>
+                    <div class="text-xs sm:text-sm text-slate-500 flex items-center gap-1.5">
                         <label for="mgmtPageSizeSelect">每頁：</label>
-                        <select id="mgmtPageSizeSelect" onchange="changeMgmtPageSize()" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm">
+                        <select id="mgmtPageSizeSelect" onchange="changeMgmtPageSize()" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs sm:text-sm">
                             <option value="10" selected>10 筆</option>
                             <option value="20">20 筆</option>
                         </select>
@@ -238,7 +241,7 @@
                 <!-- 後台手機版卡片 -->
                 <div id="mgmtCardContainer" class="grid grid-cols-1 gap-2.5 md:hidden"></div>
 
-                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 text-sm text-slate-500">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 text-xs sm:text-sm text-slate-500">
                     <div id="mgmtPageInfo" class="font-medium"></div>
                     <div id="mgmtPaginationButtons" class="flex flex-wrap justify-center gap-1 w-full sm:w-auto"></div>
                 </div>
@@ -277,13 +280,13 @@
             if (tab === 'add') {
                 addTab.classList.remove("hidden");
                 mgmtTab.classList.add("hidden");
-                btnAdd.className = "flex-1 sm:flex-none px-4 py-1.5 text-sm font-bold rounded-lg bg-white text-slate-800 shadow-2xs transition-all";
-                btnMgmt.className = "flex-1 sm:flex-none px-4 py-1.5 text-sm font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+                btnAdd.className = "flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-white text-slate-800 shadow-2xs transition-all";
+                btnMgmt.className = "flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all";
             } else {
                 addTab.classList.add("hidden");
                 mgmtTab.classList.remove("hidden");
-                btnMgmt.className = "flex-1 sm:flex-none px-4 py-1.5 text-sm font-bold rounded-lg bg-white text-slate-800 shadow-2xs transition-all";
-                btnAdd.className = "flex-1 sm:flex-none px-4 py-1.5 text-sm font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+                btnMgmt.className = "flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-white text-slate-800 shadow-2xs transition-all";
+                btnAdd.className = "flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all";
             }
         }
 
@@ -315,7 +318,7 @@
             } catch (e) {
                 console.warn("無法從 Google 試算表讀取資料 (改用本地快取):", e);
                 if (syncStatusEl) syncStatusEl.innerHTML = `🟡 本地快取模式`;
-            } finally {
+            } font-medium; {
                 if (btnRefresh) btnRefresh.disabled = false;
             }
         }
@@ -362,9 +365,9 @@
                 }
             });
 
-            let html = `<button class="px-3 py-1 text-sm rounded-full border ${selectedTag === 'ALL' ? 'bg-emerald-600 border-emerald-600 text-white font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}" onclick="filterByTag('ALL')">全部</button>`;
+            let html = `<button class="px-2.5 py-1 text-xs sm:text-sm rounded-full border ${selectedTag === 'ALL' ? 'bg-emerald-600 border-emerald-600 text-white font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}" onclick="filterByTag('ALL')">全部</button>`;
             allTags.forEach(tag => {
-                html += `<button class="px-3 py-1 text-sm rounded-full border ${selectedTag === tag ? 'bg-emerald-600 border-emerald-600 text-white font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}" onclick="filterByTag('${tag}')">#${tag}</button>`;
+                html += `<button class="px-2.5 py-1 text-xs sm:text-sm rounded-full border ${selectedTag === tag ? 'bg-emerald-600 border-emerald-600 text-white font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}" onclick="filterByTag('${tag}')">#${tag}</button>`;
             });
             tagContainer.innerHTML = html;
         }
@@ -382,14 +385,14 @@
             ["statusAll", "statusReady", "statusReserved", "statusBorrowed"].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) {
-                    btn.className = "status-filter-btn px-3 py-1 text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all";
+                    btn.className = "status-filter-btn px-2.5 py-1 text-xs sm:text-sm rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-medium transition-all";
                 }
             });
 
             const activeBtnMap = { 'ALL': 'statusAll', '可借閱': 'statusReady', '已預約': 'statusReserved', '已借出': 'statusBorrowed' };
             const activeBtn = document.getElementById(activeBtnMap[status]);
             if (activeBtn) {
-                activeBtn.className = "status-filter-btn px-3 py-1 text-sm rounded-full border border-slate-700 bg-slate-700 text-white font-medium transition-all";
+                activeBtn.className = "status-filter-btn px-2.5 py-1 text-xs sm:text-sm rounded-full border border-slate-700 bg-slate-700 text-white font-medium transition-all";
             }
 
             renderUI();
@@ -447,7 +450,6 @@
 
             // 渲染前台箱書
             pageBoxes.forEach(box => {
-                // 自動判斷是否為巡迴箱書 (不論狀態)
                 const isTourBox = box.id.includes("巡迴") || box.topic.includes("巡迴");
 
                 let statusClass = "status-ready";
@@ -463,9 +465,9 @@
 
                 if (isStaff) {
                     if (box.status === "已預約") {
-                        staffActionBtn = `<button class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm px-3 py-1 rounded-lg transition-all shadow-2xs" onclick="confirmCheckout('${box.id}')">確認借出 (${box.targetClass})</button>`;
+                        staffActionBtn = `<button class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm px-3 py-1 rounded-lg transition-all shadow-2xs" onclick="confirmCheckout('${box.id}')">確認借出 (${box.targetClass})</button>`;
                     } else if (box.status === "已借出") {
-                        staffActionBtn = `<button class="bg-slate-600 hover:bg-slate-700 text-white font-bold text-sm px-3 py-1 rounded-lg transition-all shadow-2xs" onclick="returnBox('${box.id}')">辦理歸還</button>`;
+                        staffActionBtn = `<button class="bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs sm:text-sm px-3 py-1 rounded-lg transition-all shadow-2xs" onclick="returnBox('${box.id}')">辦理歸還</button>`;
                     }
                 }
 
@@ -475,9 +477,9 @@
                             <div class="bg-amber-50/90 border border-amber-200/80 p-2.5 rounded-xl flex items-center justify-between gap-2 mt-1.5">
                                 <div>
                                     <span class="text-xs font-bold text-amber-700 block">預約班級</span>
-                                    <span class="text-base font-extrabold text-amber-900">${box.targetClass}</span>
+                                    <span class="text-sm font-extrabold text-amber-900">${box.targetClass}</span>
                                 </div>
-                                <button class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm px-3 py-1.5 rounded-lg transition-all shadow-2xs shrink-0" onclick="confirmCheckout('${box.id}')">
+                                <button class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm px-3 py-1.5 rounded-lg transition-all shadow-2xs shrink-0" onclick="confirmCheckout('${box.id}')">
                                     確認借出 ➔
                                 </button>
                             </div>
@@ -487,9 +489,9 @@
                             <div class="bg-orange-50/90 border border-orange-200/80 p-2.5 rounded-xl flex items-center justify-between gap-2 mt-1.5">
                                 <div>
                                     <span class="text-xs font-bold text-orange-700 block">借閱中班級</span>
-                                    <span class="text-base font-extrabold text-orange-900">${box.targetClass}</span>
+                                    <span class="text-sm font-extrabold text-orange-900">${box.targetClass}</span>
                                 </div>
-                                <button class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-sm px-3 py-1.5 rounded-lg transition-all shadow-2xs shrink-0" onclick="returnBox('${box.id}')">
+                                <button class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm px-3 py-1.5 rounded-lg transition-all shadow-2xs shrink-0" onclick="returnBox('${box.id}')">
                                     辦理歸還 ↩
                                 </button>
                             </div>
@@ -511,7 +513,6 @@
                     `;
                 }
 
-                // 🌿 莫蘭迪鼠尾草綠 (Morandi Sage Green) 背景高亮 (僅保留背景色，無左邊框)
                 const trBgClass = isTourBox 
                     ? "bg-emerald-50/70 hover:bg-emerald-100/60 font-medium" 
                     : "hover:bg-slate-50/80 transition-colors";
@@ -531,7 +532,7 @@
                     `;
                 }
 
-                // 📱 手機卡片 (莫蘭迪綠框線高亮)
+                // 📱 手機卡片
                 const cardBorderClass = isTourBox
                     ? "border-2 border-emerald-500/80 bg-emerald-50/30 shadow-xs"
                     : "border border-slate-200 bg-white";
@@ -639,7 +640,7 @@
             btnContainer.innerHTML = "";
 
             const prevBtn = document.createElement("button");
-            prevBtn.className = `px-3 py-1 text-sm rounded-lg border bg-white ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`;
+            prevBtn.className = `px-2.5 py-1 text-xs sm:text-sm rounded-lg border bg-white ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`;
             prevBtn.innerText = "◄ 上頁";
             prevBtn.disabled = currentPage === 1;
             prevBtn.onclick = () => { currentPage--; renderUI(); };
@@ -647,14 +648,14 @@
 
             for (let i = 1; i <= totalPages; i++) {
                 const pBtn = document.createElement("button");
-                pBtn.className = `px-3 py-1 text-sm rounded-lg border ${i === currentPage ? 'bg-slate-700 border-slate-700 text-white font-medium' : 'bg-white hover:bg-slate-50'}`;
+                pBtn.className = `px-2.5 py-1 text-xs sm:text-sm rounded-lg border ${i === currentPage ? 'bg-slate-700 border-slate-700 text-white font-medium' : 'bg-white hover:bg-slate-50'}`;
                 pBtn.innerText = i;
                 pBtn.onclick = () => { currentPage = i; renderUI(); };
                 btnContainer.appendChild(pBtn);
             }
 
             const nextBtn = document.createElement("button");
-            nextBtn.className = `px-3 py-1 text-sm rounded-lg border bg-white ${currentPage === totalPages || totalPages === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`;
+            nextBtn.className = `px-2.5 py-1 text-xs sm:text-sm rounded-lg border bg-white ${currentPage === totalPages || totalPages === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`;
             nextBtn.innerText = "下頁 ►";
             nextBtn.disabled = currentPage === totalPages || totalPages === 0;
             nextBtn.onclick = () => { currentPage++; renderUI(); };
@@ -794,16 +795,16 @@
                 const password = prompt("請輸入閱推老師管理密碼");
                 if (password === STAFF_PASSWORD) {
                     isStaff = true;
-                    document.getElementById("roleBadge").innerHTML = "<b class='text-rose-700'>🛠️ 閱推老師管理模式</b>";
+                    document.getElementById("roleBadge").innerHTML = "<b class='text-rose-700 truncate'>🛠️ 管理模式</b>";
                     document.getElementById("authBtnText").innerText = "登出管理";
-                    document.getElementById("authBtn").className = "text-sm font-bold bg-slate-700 hover:bg-slate-800 text-white shadow-sm px-4 py-2 rounded-xl transition-all flex items-center gap-2 ml-auto md:ml-0";
+                    document.getElementById("authBtn").className = "text-xs sm:text-sm font-bold bg-slate-700 hover:bg-slate-800 text-white shadow-sm px-2 sm:px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-1";
                     document.getElementById("staffPanel").classList.remove("hidden");
                 } else if (password !== null) { alert("密碼錯誤！"); }
             } else {
                 isStaff = false;
-                document.getElementById("roleBadge").innerHTML = "📖 班級預約模式";
+                document.getElementById("roleBadge").innerHTML = "📖 班級預約";
                 document.getElementById("authBtnText").innerText = "閱推老師登入";
-                document.getElementById("authBtn").className = "text-sm font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-sm hover:shadow px-4 py-2 rounded-xl transition-all flex items-center gap-2 ml-auto md:ml-0";
+                document.getElementById("authBtn").className = "text-xs sm:text-sm font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-sm hover:shadow px-2 sm:px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-1";
                 document.getElementById("staffPanel").classList.add("hidden");
             }
             renderUI();
